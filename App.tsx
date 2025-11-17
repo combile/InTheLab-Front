@@ -5,12 +5,18 @@ import { ThemeProvider } from "styled-components/native";
 import { theme } from "./src/styles";
 import styled from "styled-components/native";
 import { View, Text } from "react-native";
+import { Footer } from "./src/components";
 
-const Container = styled.View`
+const Screen = styled.View`
+  flex: 1;
+  background-color: ${(props) => props.theme.colors.background};
+`;
+
+const Content = styled.View`
   flex: 1;
   align-items: center;
   justify-content: center;
-  background-color: ${props => props.theme.colors.background};
+  background-color: ${(props) => props.theme.colors.background};
 `;
 
 const Title = styled.Text`
@@ -50,11 +56,14 @@ export default function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Container>
-        <Title>IEUM 플랫폼</Title>
-        <Subtitle>React Native Expo + TypeScript</Subtitle>
-        <Subtitle>Axios & Styled Components</Subtitle>
-      </Container>
+      <Screen>
+        <Content>
+          <Title>IEUM 플랫폼</Title>
+          <Subtitle>React Native Expo + TypeScript</Subtitle>
+          <Subtitle>Axios & Styled Components</Subtitle>
+        </Content>
+        <Footer />
+      </Screen>
       <StatusBar style="auto" />
     </ThemeProvider>
   );
