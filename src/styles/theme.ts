@@ -11,7 +11,7 @@ export const theme = {
     black: "Pretendard-Black",
   },
   colors: {
-    primary: "#68D0C6",
+    primary: "#7F8EFF",
     background: "#FFFFFF",
     text: {
       primary: "#000000",
