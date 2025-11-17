@@ -1,0 +1,236 @@
+# IEUM_FRONT 프로젝트 코딩 규칙
+
+## 폴더 구조 규칙
+
+### 페이지 구조 (src/pages/)
+- 각 페이지는 반드시 개별 폴더로 생성해야 합니다
+- 폴더명은 PascalCase로 작성합니다 (예: Home, Map, Profile)
+- 각 페이지 폴더 내부 구조:
+  - PageName.tsx (실제 컴포넌트 파일)
+  - index.tsx (export만 담당)
+- src/pages/index.tsx에서 모든 페이지를 export합니다
+- 예시: export { Home } from "./Home";
+
+### 컴포넌트 구조 (src/components/)
+- 각 컴포넌트는 반드시 개별 폴더로 생성해야 합니다
+- 폴더명은 PascalCase로 작성합니다 (예: Container, Footer, Text)
+- 각 컴포넌트 폴더 내부 구조:
+  - ComponentName.tsx (실제 컴포넌트 파일)
+  - RelatedFiles.tsx (관련 파일들, 필요시)
+  - index.tsx (export만 담당)
+- src/components/index.tsx에서 모든 컴포넌트를 export합니다
+- 예시: export { Container } from "./Container";
+
+### 관련 파일 분리
+- 큰 컴포넌트의 경우 관련 파일들을 별도 파일로 분리합니다
+- 예: Footer 컴포넌트의 아이콘들은 FooterIcons.tsx로 분리
+- 각 파일은 단일 책임 원칙을 따릅니다
+
+## Import/Export 규칙
+
+### Index 파일 활용 (필수)
+- 모든 폴더는 index.tsx를 통해 export해야 합니다
+- 다른 파일에서 import할 때는 반드시 index를 통해 import합니다
+- 좋은 예: import { Home, Map, Profile } from "./src/pages";
+- 좋은 예: import { Container, CustomText, Footer } from "./src/components";
+- 나쁜 예: import { Home } from "./src/pages/Home/Home";
+- 나쁜 예: import { Container } from "./src/components/Container/Container";
+
+### Named Export 사용 (필수)
+- 기본 export 대신 named export를 사용해야 합니다
+- index.tsx에서는 re-export만 담당합니다
+- 예시: export { ComponentName } from "./ComponentName";
+
+## 코드 스타일 규칙
+
+### 따옴표 (필수)
+- 반드시 Double quotes (")를 사용해야 합니다
+- 좋은 예: import React from "react";
+- 나쁜 예: import React from 'react';
+
+### 파일명
+- 컴포넌트 파일명은 PascalCase를 사용합니다 (예: Home.tsx, Footer.tsx)
+- 일반 유틸리티 파일은 camelCase를 사용합니다 (예: apiClient.ts, utils.ts)
+
+### 폴더명
+- 모든 폴더명은 PascalCase를 사용합니다 (예: pages/Home/, components/Footer/)
+
+## 컴포넌트 작성 규칙
+
+### 컴포넌트 구조
+- 각 컴포넌트는 독립적인 폴더에 위치해야 합니다
+- 관련 타입, 스타일, 유틸리티는 같은 폴더 내에 위치시킵니다
+
+### Props 인터페이스
+- Props 인터페이스는 컴포넌트 파일 내부에 정의합니다
+- interface ComponentNameProps 형식을 따릅니다
+
+### React.FC 사용 금지 (필수)
+- React.FC는 사용하지 않습니다
+- 일반 함수 선언을 사용하고, Props 타입은 파라미터에 직접 지정합니다
+- 좋은 예:
+  ```typescript
+  export const Component = ({ prop1, prop2 }: ComponentProps) => {
+    return <View>...</View>;
+  };
+  
+  export const SimpleComponent = () => {
+    return <View>...</View>;
+  };
+  ```
+- 나쁜 예:
+  ```typescript
+  export const Component: React.FC<ComponentProps> = ({ prop1, prop2 }) => {
+    return <View>...</View>;
+  };
+  
+  export const SimpleComponent: React.FC = () => {
+    return <View>...</View>;
+  };
+  ```
+
+## React Native 스타일 규칙
+
+### Shadow 속성 (필수)
+- React Native에서 shadow-* 속성은 iOS 전용입니다
+- styled-components/native 템플릿 리터럴에서는 shadow 속성을 직접 사용할 수 없습니다
+- Platform을 사용하여 인라인 스타일로 적용해야 합니다
+- 좋은 예:
+  ```typescript
+  import { Platform } from "react-native";
+  
+  <StyledView
+    style={
+      Platform.OS === "ios"
+        ? {
+            shadowColor: "rgba(0, 0, 0, 0.05)",
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 1,
+            shadowRadius: 2,
+          }
+        : { elevation: 2 }
+    }
+  />
+  ```
+- 나쁜 예:
+  ```typescript
+  const StyledView = styled.View`
+    shadow-color: rgba(0, 0, 0, 0.05);
+    shadow-offset: 0px -2px;
+    elevation: 2;
+  `;
+  ```
+
+### Padding 속성
+- padding-vertical, padding-horizontal 같은 하이픈 속성은 사용하지 않습니다
+- padding-top, padding-bottom, padding-left, padding-right로 분리해서 사용합니다
+- 좋은 예:
+  ```typescript
+  padding-top: 12px;
+  padding-bottom: 12px;
+  padding-left: 20px;
+  padding-right: 20px;
+  ```
+- 나쁜 예:
+  ```typescript
+  padding-vertical: 12px;
+  padding-horizontal: 20px;
+  ```
+
+### Elevation 속성
+- Android용 elevation도 템플릿 리터럴에서 직접 사용할 수 없습니다
+- Platform 조건문을 사용하여 인라인 스타일로 적용합니다
+- iOS에는 shadow 속성, Android에는 elevation을 사용합니다
+
+## 작업 가이드
+
+### 새 페이지 추가 시
+1. src/pages/PageName/ 폴더 생성
+2. PageName.tsx 파일 생성
+3. index.tsx 파일 생성하여 export
+4. src/pages/index.tsx에 export 추가
+
+### 새 컴포넌트 추가 시
+1. src/components/ComponentName/ 폴더 생성
+2. ComponentName.tsx 파일 생성
+3. index.tsx 파일 생성하여 export
+4. src/components/index.tsx에 export 추가
+
+### 파일 분리 기준
+- 컴포넌트가 200줄 이상이거나
+- 명확히 분리 가능한 기능이 있으면 별도 파일로 분리합니다
+- 예: 아이콘 컴포넌트, 스타일 컴포넌트, 유틸리티 함수 등
+
+## 중요 사항
+- 위 규칙들은 프로젝트의 일관성과 유지보수성을 위해 반드시 준수해야 합니다
+- 코드를 작성하거나 수정할 때 항상 이 규칙들을 따라야 합니다
+
+
+# Commit Message Rules
+
+When creating git commits, follow this format:
+
+```
+[Type] - commit message in English
+```
+
+## Commit Types
+
+- `[Feat]` - New feature implementation
+- `[Fix]` - Bug fix
+- `[Refactor]` - Code refactoring (no functional changes)
+- `[Style]` - Code style changes (formatting, missing semicolons, etc.)
+- `[Docs]` - Documentation changes
+- `[Test]` - Test code additions or modifications
+- `[Chore]` - Build tasks, package manager configs, etc.
+- `[Perf]` - Performance improvements
+- `[Build]` - Build system or external dependency changes
+- `[CI]` - CI configuration changes
+
+## Examples
+
+- `[Feat] - Add user authentication screen`
+- `[Fix] - Resolve navigation issue on HomeScreen`
+- `[Refactor] - Simplify container component logic`
+- `[Docs] - Update README with installation steps`
+
+## Guidelines
+
+- Commit messages must be written in English
+- Keep messages concise and descriptive
+- Use imperative mood (e.g., "Add" not "Added")
+- Start with a capital letter after the type
+
+## Commit Strategy
+
+When making changes, break them down into logical, separate commits:
+
+### ✅ DO:
+
+- Make separate commits for different features or changes
+- Group related changes together in one commit
+- Make atomic commits that can be easily reviewed
+- Commit UI changes separately from logic changes
+- Commit new features separately from bug fixes
+
+### ❌ DON'T:
+
+- Mix unrelated changes in a single commit
+- Commit everything at once without logical separation
+- Include multiple features in one commit
+
+### Examples of Good Commit Separation:
+
+```
+[Feat] - Add user authentication screen
+[Style] - Update button styling in auth screen
+[Fix] - Resolve navigation issue on HomeScreen
+[Refactor] - Simplify container component logic
+[Docs] - Update README with installation steps
+```
+
+### Examples of Bad Commit Separation:
+
+```
+[Feat] - Add auth screen and fix navigation and update styling
+```
