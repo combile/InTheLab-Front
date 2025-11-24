@@ -1,37 +1,11 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { ThemeProvider } from "styled-components/native";
 import { theme } from "./src/styles";
-import styled from "styled-components/native";
+import { Splash, Main } from "./src/pages";
 import { View, Text } from "react-native";
 import { Footer } from "./src/components";
-
-const Screen = styled.View`
-  flex: 1;
-  background-color: ${(props) => props.theme.colors.background};
-`;
-
-const Content = styled.View`
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  background-color: ${(props) => props.theme.colors.background};
-`;
-
-const Title = styled.Text`
-  font-size: 24px;
-  font-weight: bold;
-  font-family: ${props => props.theme.fonts.bold};
-  color: ${props => props.theme.colors.text.primary};
-  margin-bottom: 16px;
-`;
-
-const Subtitle = styled.Text`
-  font-size: 16px;
-  font-family: ${props => props.theme.fonts.primary};
-  color: ${props => props.theme.colors.text.secondary};
-`;
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -46,6 +20,18 @@ export default function App() {
     "Pretendard-Black": require("./assets/fonts/Pretendard-Black.otf"),
   });
 
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [fontsLoaded]);
+
   if (!fontsLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -56,14 +42,7 @@ export default function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Screen>
-        <Content>
-          <Title>IEUM 플랫폼</Title>
-          <Subtitle>React Native Expo + TypeScript</Subtitle>
-          <Subtitle>Axios & Styled Components</Subtitle>
-        </Content>
-        <Footer />
-      </Screen>
+      {showSplash ? <Splash /> : <Main />}
       <StatusBar style="auto" />
     </ThemeProvider>
   );
