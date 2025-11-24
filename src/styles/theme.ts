@@ -12,10 +12,10 @@ export const theme = {
   },
   colors: {
     primary: "#7F8EFF",
-    background: "#FFFFFF",
+    background: "#F0F2F5",
     text: {
-      primary: "#000000",
-      secondary: "#666666",
+      primary: "#4A4A4A",
+      secondary: "#A2A2A2",
     },
   },
   spacing: {
@@ -24,6 +24,8 @@ export const theme = {
     md: 16,
     lg: 24,
     xl: 32,
+    xxl: 40,
+    xxxl: 60,
   },
   borderRadius: {
     sm: 4,
@@ -36,6 +38,7 @@ export const theme = {
     md: 16,
     lg: 18,
     xl: 20,
+    xxl: 24
   },
   fontWeight: {
     normal: "400" as const,

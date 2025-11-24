@@ -6,7 +6,7 @@
 - 각 페이지는 반드시 개별 폴더로 생성해야 합니다
 - 폴더명은 PascalCase로 작성합니다 (예: Home, Map, Profile)
 - 각 페이지 폴더 내부 구조:
-  - PageName.tsx (실제 컴포넌트 파일)
+  - PageName.tsx (실제 컴포넌트 파일)  
   - index.tsx (export만 담당)
 - src/pages/index.tsx에서 모든 페이지를 export합니다
 - 예시: export { Home } from "./Home";
