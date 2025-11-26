@@ -1,36 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { ThemeProvider } from "styled-components/native";
 import { theme } from "./src/styles";
 import styled from "styled-components/native";
 import { View, Text } from "react-native";
-import { Footer } from "./src/components";
+import { MyPage, AttendanceRanking } from "./src/pages";
 
 const Screen = styled.View`
   flex: 1;
   background-color: ${(props) => props.theme.colors.background};
-`;
-
-const Content = styled.View`
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  background-color: ${(props) => props.theme.colors.background};
-`;
-
-const Title = styled.Text`
-  font-size: 24px;
-  font-weight: bold;
-  font-family: ${props => props.theme.fonts.bold};
-  color: ${props => props.theme.colors.text.primary};
-  margin-bottom: 16px;
-`;
-
-const Subtitle = styled.Text`
-  font-size: 16px;
-  font-family: ${props => props.theme.fonts.primary};
-  color: ${props => props.theme.colors.text.secondary};
 `;
 
 export default function App() {
@@ -45,6 +24,7 @@ export default function App() {
     "Pretendard-ExtraBold": require("./assets/fonts/Pretendard-ExtraBold.otf"),
     "Pretendard-Black": require("./assets/fonts/Pretendard-Black.otf"),
   });
+  const [screen, setScreen] = useState<"my" | "ranking">("my");
 
   if (!fontsLoaded) {
     return (
@@ -57,12 +37,11 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <Screen>
-        <Content>
-          <Title>IEUM 플랫폼</Title>
-          <Subtitle>React Native Expo + TypeScript</Subtitle>
-          <Subtitle>Axios & Styled Components</Subtitle>
-        </Content>
-        <Footer />
+        {screen === "my" ? (
+          <MyPage onNavigateRanking={() => setScreen("ranking")} />
+        ) : (
+          <AttendanceRanking onGoBack={() => setScreen("my")} />
+        )}
       </Screen>
       <StatusBar style="auto" />
     </ThemeProvider>
