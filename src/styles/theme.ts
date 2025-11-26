@@ -14,14 +14,14 @@ export const theme = {
     primary: "#6D6BFF",
     primarySoft: "#9AA1FF",
     accent: "#6C63FF",
-    background: "#F5F6FB",
+    background: "#F0F2F5",
     surface: "#FFFFFF",
     surfaceSoft: "#F9FAFF",
     border: "#E4E7F2",
     divider: "#EEF0FA",
     text: {
-      primary: "#1F2433",
-      secondary: "#6B7287",
+      primary: "#4A4A4A",
+      secondary: "#A2A2A2",
       tertiary: "#9AA3BA",
     },
     status: {
@@ -35,6 +35,8 @@ export const theme = {
     md: 16,
     lg: 24,
     xl: 32,
+    xxl: 40,
+    xxxl: 60,
   },
   borderRadius: {
     sm: 4,
@@ -47,6 +49,7 @@ export const theme = {
     md: 16,
     lg: 18,
     xl: 20,
+    xxl: 24
   },
   fontWeight: {
     normal: "400" as const,
