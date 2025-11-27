@@ -5,7 +5,12 @@ import { ThemeProvider } from "styled-components/native";
 import { theme } from "./src/styles";
 import { Splash, Main } from "./src/pages";
 import { View, Text } from "react-native";
-import { Footer } from "./src/components";
+import { MyPage, AttendanceRanking } from "./src/pages";
+
+const Screen = styled.View`
+  flex: 1;
+  background-color: ${(props) => props.theme.colors.background};
+`;
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -19,6 +24,7 @@ export default function App() {
     "Pretendard-ExtraBold": require("./assets/fonts/Pretendard-ExtraBold.otf"),
     "Pretendard-Black": require("./assets/fonts/Pretendard-Black.otf"),
   });
+  const [screen, setScreen] = useState<"my" | "ranking">("my");
 
   const [showSplash, setShowSplash] = useState(true);
 
@@ -42,6 +48,13 @@ export default function App() {
 
   return (
     <ThemeProvider theme={theme}>
+      <Screen>
+        {screen === "my" ? (
+          <MyPage onNavigateRanking={() => setScreen("ranking")} />
+        ) : (
+          <AttendanceRanking onGoBack={() => setScreen("my")} />
+        )}
+      </Screen>
       {showSplash ? <Splash /> : <Main />}
       <StatusBar style="auto" />
     </ThemeProvider>
