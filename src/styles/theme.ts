@@ -11,11 +11,22 @@ export const theme = {
     black: "Pretendard-Black",
   },
   colors: {
-    primary: "#7F8EFF",
+    primary: "#6D6BFF",
+    primarySoft: "#9AA1FF",
+    accent: "#6C63FF",
     background: "#F0F2F5",
+    surface: "#FFFFFF",
+    surfaceSoft: "#F9FAFF",
+    border: "#E4E7F2",
+    divider: "#EEF0FA",
     text: {
       primary: "#4A4A4A",
       secondary: "#A2A2A2",
+      tertiary: "#9AA3BA",
+    },
+    status: {
+      success: "#2BC0AC",
+      info: "#6D6BFF",
     },
   },
   spacing: {
