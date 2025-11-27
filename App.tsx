@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { ThemeProvider } from "styled-components/native";
 import { theme } from "./src/styles";
-import styled from "styled-components/native";
+import { Splash, Main } from "./src/pages";
 import { View, Text } from "react-native";
 import { MyPage, AttendanceRanking } from "./src/pages";
 
@@ -26,6 +26,18 @@ export default function App() {
   });
   const [screen, setScreen] = useState<"my" | "ranking">("my");
 
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [fontsLoaded]);
+
   if (!fontsLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -43,6 +55,7 @@ export default function App() {
           <AttendanceRanking onGoBack={() => setScreen("my")} />
         )}
       </Screen>
+      {showSplash ? <Splash /> : <Main />}
       <StatusBar style="auto" />
     </ThemeProvider>
   );
