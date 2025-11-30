@@ -27,6 +27,7 @@ export const theme = {
     status: {
       success: "#2BC0AC",
       info: "#6D6BFF",
+      error: "#FF6B6B",
     },
   },
   spacing: {

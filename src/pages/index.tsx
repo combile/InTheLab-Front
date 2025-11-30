@@ -4,3 +4,5 @@ export { Splash } from "./splash";
 export { Main } from "./main";
 export { Timesheet } from "./timesheet";
 export { Alarm } from "./alarm";
+export { Login } from "./Login";
+export { SignUp } from "./SignUp";
