@@ -4,7 +4,6 @@ import { Animated, Platform, StyleSheet, TouchableOpacity } from "react-native";
 import type { StyleProp, TouchableOpacityProps, ViewStyle } from "react-native";
 import { Svg, Path } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { Footer } from "../../components";
 
 import ChartIcon from "../../../assets/myPage/Chart.svg";
 import GoToWorkIcon from "../../../assets/myPage/GoToWork.svg";
@@ -108,7 +107,10 @@ export const MyPage = ({ onNavigateRanking }: MyPageProps) => {
                 disabled={!handlePress}
               >
                 <IconContainer>
-                  <Icon width="100%" height="100%" />
+                  <Icon
+                    width="100%"
+                    height="100%"
+                  />
                 </IconContainer>
                 <ActionLabel>{label}</ActionLabel>
               </ActionCard>
@@ -121,9 +123,7 @@ export const MyPage = ({ onNavigateRanking }: MyPageProps) => {
             이번주에는{"\n"}
             <SummaryHighlight>32시간 출근했어요 !</SummaryHighlight>
           </SummaryText>
-          <SummaryDescription>
-            지난 주보다 3시간 더 출근했어요
-          </SummaryDescription>
+          <SummaryDescription>지난 주보다 3시간 더 출근했어요</SummaryDescription>
           <NotebookContainer>
             <NotebookGraphic />
           </NotebookContainer>
@@ -149,14 +149,13 @@ export const MyPage = ({ onNavigateRanking }: MyPageProps) => {
           ))}
         </MenuCard>
       </Content>
-      <Footer activeTabId="profile" />
     </Screen>
   );
 };
 
 const Screen = styled.SafeAreaView`
   flex: 1;
-  background-color: ${(props) => props.theme.colors.background};
+  background-color: ${props => props.theme.colors.background};
 `;
 
 const Content = styled.ScrollView`
@@ -176,8 +175,8 @@ const LogoWrapper = styled.View`
 
 const LogoText = styled.Text`
   font-size: 32px;
-  font-family: ${(props) => props.theme.fonts.black};
-  color: ${(props) => props.theme.colors.text.primary};
+  font-family: ${props => props.theme.fonts.black};
+  color: ${props => props.theme.colors.text.primary};
   line-height: 40px;
 `;
 
@@ -185,19 +184,19 @@ const LogoDot = styled.View`
   width: 8px;
   height: 8px;
   border-radius: 4px;
-  background-color: ${(props) => props.theme.colors.primary};
+  background-color: ${props => props.theme.colors.primary};
   margin-top: 8px;
   margin-left: 2px;
 `;
 
 const HeaderTitle = styled.Text`
   font-size: 22px;
-  font-family: ${(props) => props.theme.fonts.bold};
-  color: ${(props) => props.theme.colors.text.primary};
+  font-family: ${props => props.theme.fonts.bold};
+  color: ${props => props.theme.colors.text.primary};
 `;
 
 const UserCard = styled.View`
-  background-color: ${(props) => props.theme.colors.surface};
+  background-color: ${props => props.theme.colors.surface};
   border-radius: 18px;
   padding: 20px;
   margin-bottom: 20px;
@@ -222,15 +221,15 @@ const UserMeta = styled.View``;
 
 const UserName = styled.Text`
   font-size: 20px;
-  color: ${(props) => props.theme.colors.text.primary};
-  font-family: ${(props) => props.theme.fonts.bold};
+  color: ${props => props.theme.colors.text.primary};
+  font-family: ${props => props.theme.fonts.bold};
   margin-bottom: 4px;
 `;
 
 const CompanyName = styled.Text`
   font-size: 14px;
-  color: ${(props) => props.theme.colors.text.secondary};
-  font-family: ${(props) => props.theme.fonts.primary};
+  color: ${props => props.theme.colors.text.secondary};
+  font-family: ${props => props.theme.fonts.primary};
 `;
 
 const StatusContainer = styled.View`
@@ -239,15 +238,15 @@ const StatusContainer = styled.View`
 
 const StatusLabel = styled.Text`
   font-size: 13px;
-  color: ${(props) => props.theme.colors.text.secondary};
-  font-family: ${(props) => props.theme.fonts.medium};
+  color: ${props => props.theme.colors.text.secondary};
+  font-family: ${props => props.theme.fonts.medium};
   margin-bottom: 4px;
 `;
 
 const StatusValue = styled.Text`
   font-size: 15px;
-  color: ${(props) => props.theme.colors.primary};
-  font-family: ${(props) => props.theme.fonts.bold};
+  color: ${props => props.theme.colors.primary};
+  font-family: ${props => props.theme.fonts.bold};
 `;
 
 const QuickActions = styled.View`
@@ -258,7 +257,7 @@ const QuickActions = styled.View`
 
 const ActionCard = styled.TouchableOpacity`
   flex: 1;
-  background-color: ${(props) => props.theme.colors.surface};
+  background-color: ${props => props.theme.colors.surface};
   border-radius: 18px;
   padding: 18px;
   align-items: center;
@@ -275,12 +274,12 @@ const IconContainer = styled.View`
 
 const ActionLabel = styled.Text`
   font-size: 13px;
-  color: ${(props) => props.theme.colors.text.secondary};
-  font-family: ${(props) => props.theme.fonts.medium};
+  color: ${props => props.theme.colors.text.secondary};
+  font-family: ${props => props.theme.fonts.medium};
 `;
 
 const SummaryCard = styled.View`
-  background-color: ${(props) => props.theme.colors.surface};
+  background-color: ${props => props.theme.colors.surface};
   border-radius: 20px;
   padding: 24px;
   margin-bottom: 20px;
@@ -291,21 +290,21 @@ const SummaryCard = styled.View`
 const SummaryText = styled.Text`
   font-size: 20px;
   line-height: 30px;
-  color: ${(props) => props.theme.colors.text.primary};
-  font-family: ${(props) => props.theme.fonts.bold};
+  color: ${props => props.theme.colors.text.primary};
+  font-family: ${props => props.theme.fonts.bold};
   padding-right: 80px;
   z-index: 1;
 `;
 
 const SummaryHighlight = styled.Text`
-  color: ${(props) => props.theme.colors.primary};
+  color: ${props => props.theme.colors.primary};
 `;
 
 const SummaryDescription = styled.Text`
   margin-top: 8px;
   font-size: 13px;
-  color: ${(props) => props.theme.colors.text.secondary};
-  font-family: ${(props) => props.theme.fonts.primary};
+  color: ${props => props.theme.colors.text.secondary};
+  font-family: ${props => props.theme.fonts.primary};
   z-index: 1;
 `;
 
@@ -333,8 +332,8 @@ const MenuCard = styled.View`
 
 const MenuLabel = styled.Text`
   font-size: 15px;
-  color: ${(props) => props.theme.colors.text.primary};
-  font-family: ${(props) => props.theme.fonts.bold};
+  color: ${props => props.theme.colors.text.primary};
+  font-family: ${props => props.theme.fonts.bold};
 `;
 
 const Chevron = styled.View`
@@ -343,7 +342,12 @@ const Chevron = styled.View`
 `;
 
 const ChevronIcon = () => (
-  <Svg width={6} height={10} viewBox="0 0 6 10" fill="none">
+  <Svg
+    width={6}
+    height={10}
+    viewBox="0 0 6 10"
+    fill="none"
+  >
     <Path
       d="M1 1L5 5L1 9"
       stroke="#1F2433"
@@ -375,7 +379,7 @@ const GradientTouchable = ({
   const rotateLoop = useRef<Animated.CompositeAnimation | null>(null);
   const [layout, setLayout] = React.useState({ width: 0, height: 0 });
 
-  const handlePressIn: TouchableOpacityProps["onPressIn"] = (event) => {
+  const handlePressIn: TouchableOpacityProps["onPressIn"] = event => {
     Animated.timing(borderAnim, {
       toValue: 1,
       duration: 200,
@@ -387,14 +391,14 @@ const GradientTouchable = ({
         toValue: 1,
         duration: 1500,
         useNativeDriver: true,
-        easing: (t) => t, // Linear easing for seamless rotation
+        easing: t => t, // Linear easing for seamless rotation
       })
     );
     rotateLoop.current.start();
     onPressIn?.(event);
   };
 
-  const handlePressOut: TouchableOpacityProps["onPressOut"] = (event) => {
+  const handlePressOut: TouchableOpacityProps["onPressOut"] = event => {
     Animated.timing(borderAnim, {
       toValue: baseOpacity,
       duration: 200,
@@ -412,9 +416,7 @@ const GradientTouchable = ({
   });
 
   // Calculate diagonal to ensure gradient covers the whole box during rotation
-  const diagonal = Math.sqrt(
-    layout.width * layout.width + layout.height * layout.height
-  );
+  const diagonal = Math.sqrt(layout.width * layout.width + layout.height * layout.height);
   const size = Math.max(diagonal, 10) * 2.0; // Double the size to prevent clipping
 
   return (
@@ -422,7 +424,7 @@ const GradientTouchable = ({
       activeOpacity={0.95}
       $borderRadius={borderRadius}
       style={style}
-      onLayout={(e) => setLayout(e.nativeEvent.layout)}
+      onLayout={e => setLayout(e.nativeEvent.layout)}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       {...rest}
@@ -453,7 +455,10 @@ const GradientTouchable = ({
           />
         </Animated.View>
       </Animated.View>
-      <GradientTouchableInner $borderRadius={borderRadius} style={contentStyle}>
+      <GradientTouchableInner
+        $borderRadius={borderRadius}
+        style={contentStyle}
+      >
         {children}
       </GradientTouchableInner>
     </GradientTouchableWrapper>
@@ -463,15 +468,15 @@ const GradientTouchable = ({
 const GradientTouchableWrapper = styled(TouchableOpacity)<{
   $borderRadius: number;
 }>`
-  border-radius: ${(props) => props.$borderRadius}px;
-  background-color: ${(props) => props.theme.colors.surface};
+  border-radius: ${props => props.$borderRadius}px;
+  background-color: ${props => props.theme.colors.surface};
   position: relative;
   overflow: hidden;
 `;
 
 const GradientTouchableInner = styled.View<{ $borderRadius: number }>`
-  border-radius: ${(props) => props.$borderRadius - 1}px;
-  background-color: ${(props) => props.theme.colors.surface};
+  border-radius: ${props => props.$borderRadius - 1}px;
+  background-color: ${props => props.theme.colors.surface};
   margin: 1px;
 `;
 

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
-import { ThemeProvider } from "styled-components/native";
+import styled, { ThemeProvider } from "styled-components/native";
 import { theme } from "./src/styles";
-import { Splash, Main } from "./src/pages";
+import { Splash, Main, MyPage, AttendanceRanking, Timesheet, Alarm } from "./src/pages";
 import { View, Text } from "react-native";
-import { MyPage, AttendanceRanking } from "./src/pages";
+import { Footer } from "./src/components";
 
 const Screen = styled.View`
   flex: 1;
-  background-color: ${(props) => props.theme.colors.background};
+  background-color: ${props => props.theme.colors.background};
 `;
 
 export default function App() {
@@ -24,7 +24,7 @@ export default function App() {
     "Pretendard-ExtraBold": require("./assets/fonts/Pretendard-ExtraBold.otf"),
     "Pretendard-Black": require("./assets/fonts/Pretendard-Black.otf"),
   });
-  const [screen, setScreen] = useState<"my" | "ranking">("my");
+  const [screen, setScreen] = useState<"main" | "my" | "ranking" | "timecard" | "alarm">("main");
 
   const [showSplash, setShowSplash] = useState(true);
 
@@ -46,16 +46,44 @@ export default function App() {
     );
   }
 
+  const handleTabPress = (tabId: "timecard" | "home" | "profile") => {
+    if (tabId === "home") {
+      setScreen("main");
+    } else if (tabId === "profile") {
+      setScreen("my");
+    } else if (tabId === "timecard") {
+      setScreen("timecard");
+    }
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <Screen>
-        {screen === "my" ? (
+        {showSplash ? (
+          <Splash />
+        ) : screen === "main" ? (
+          <Main
+            onNavigateToTimesheet={() => setScreen("timecard")}
+            onNavigateToAlarm={() => setScreen("alarm")}
+          />
+        ) : screen === "my" ? (
           <MyPage onNavigateRanking={() => setScreen("ranking")} />
-        ) : (
+        ) : screen === "ranking" ? (
           <AttendanceRanking onGoBack={() => setScreen("my")} />
+        ) : screen === "timecard" ? (
+          <Timesheet />
+        ) : screen === "alarm" ? (
+          <Alarm onGoBack={() => setScreen("main")} />
+        ) : (
+          <Main />
         )}
       </Screen>
-      {showSplash ? <Splash /> : <Main />}
+      {!showSplash && screen !== "alarm" && (
+        <Footer
+          activeTabId={screen === "main" ? "home" : screen === "my" || screen === "ranking" ? "profile" : "timecard"}
+          onTabPress={handleTabPress}
+        />
+      )}
       <StatusBar style="auto" />
     </ThemeProvider>
   );
