@@ -6,7 +6,6 @@ import { theme } from "./src/styles";
 import { Splash, Main, MyPage, AttendanceRanking, Timesheet, Alarm, Login, SignUp } from "./src/pages";
 import { View, Text } from "react-native";
 import { Footer } from "./src/components";
-import { TtsProvider } from "./src/tts";
 
 const Screen = styled.View`
   flex: 1;
@@ -61,8 +60,7 @@ export default function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <TtsProvider>
-        <Screen>
+      <Screen>
         {showSplash ? (
           <Splash />
         ) : !isLoggedIn ? (
@@ -101,7 +99,6 @@ export default function App() {
           />
         )}
         <StatusBar style="auto" />
-      </TtsProvider>
     </ThemeProvider>
   );
 }

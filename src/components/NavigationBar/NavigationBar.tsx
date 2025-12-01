@@ -20,7 +20,7 @@ const NavigationBar = ({ currentStep, totalSteps = 4 }: NavigationBarProps) => {
     const width = 30;
     const gap = 6;
     const x = index * (width + gap);
-    
+
     return (
       <Rect
         key={index}
@@ -37,7 +37,12 @@ const NavigationBar = ({ currentStep, totalSteps = 4 }: NavigationBarProps) => {
 
   return (
     <Container>
-      <Svg width={totalWidth} height="5" viewBox={`0 0 ${totalWidth} 5`} fill="none">
+      <Svg
+        width={totalWidth}
+        height="5"
+        viewBox={`0 0 ${totalWidth} 5`}
+        fill="none"
+      >
         {bars}
       </Svg>
     </Container>
@@ -45,5 +50,3 @@ const NavigationBar = ({ currentStep, totalSteps = 4 }: NavigationBarProps) => {
 };
 
 export { NavigationBar };
-
-
