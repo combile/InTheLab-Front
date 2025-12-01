@@ -1,5 +1,6 @@
 import React from "react";
 import styled from "styled-components/native";
+import { TextStyle } from "react-native";
 
 interface TextProps {
   children: React.ReactNode;
@@ -7,6 +8,7 @@ interface TextProps {
   color?: string;
   weight?: "normal" | "bold" | "600" | "700";
   align?: "left" | "center" | "right";
+  style?: TextStyle;
 }
 
 const StyledText = styled.Text<{
@@ -30,9 +32,9 @@ const StyledText = styled.Text<{
   }};
 `;
 
-export const Text = ({ children, size, color, weight, align }: TextProps) => {
+export const Text = ({ children, size, color, weight, align, style }: TextProps) => {
   return (
-    <StyledText size={size} color={color} weight={weight} align={align}>
+    <StyledText size={size} color={color} weight={weight} align={align} style={style}>
       {children}
     </StyledText>
   );

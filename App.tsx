@@ -3,7 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import styled, { ThemeProvider } from "styled-components/native";
 import { theme } from "./src/styles";
-import { Splash, Main, MyPage, AttendanceRanking, Timesheet, Alarm } from "./src/pages";
+import { Splash, Main, MyPage, AttendanceRanking, Timesheet, Alarm, Login, SignUp } from "./src/pages";
 import { View, Text } from "react-native";
 import { Footer } from "./src/components";
 
@@ -27,6 +27,8 @@ export default function App() {
   const [screen, setScreen] = useState<"main" | "my" | "ranking" | "timecard" | "alarm">("main");
 
   const [showSplash, setShowSplash] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentAuthScreen, setCurrentAuthScreen] = useState<"login" | "signup">("login");
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -61,6 +63,18 @@ export default function App() {
       <Screen>
         {showSplash ? (
           <Splash />
+        ) : !isLoggedIn ? (
+          currentAuthScreen === "login" ? (
+            <Login
+              onLoginSuccess={() => setIsLoggedIn(true)}
+              onNavigateToSignUp={() => setCurrentAuthScreen("signup")}
+            />
+          ) : (
+            <SignUp
+              onNavigateBack={() => setCurrentAuthScreen("login")}
+              onSignUpSuccess={() => setIsLoggedIn(true)}
+            />
+          )
         ) : screen === "main" ? (
           <Main
             onNavigateToTimesheet={() => setScreen("timecard")}
@@ -77,14 +91,14 @@ export default function App() {
         ) : (
           <Main />
         )}
-      </Screen>
-      {!showSplash && screen !== "alarm" && (
-        <Footer
-          activeTabId={screen === "main" ? "home" : screen === "my" || screen === "ranking" ? "profile" : "timecard"}
-          onTabPress={handleTabPress}
-        />
-      )}
-      <StatusBar style="auto" />
+        </Screen>
+        {!showSplash && isLoggedIn && screen !== "alarm" && (
+          <Footer
+            activeTabId={screen === "main" ? "home" : screen === "my" || screen === "ranking" ? "profile" : "timecard"}
+            onTabPress={handleTabPress}
+          />
+        )}
+        <StatusBar style="auto" />
     </ThemeProvider>
   );
 }

@@ -10,3 +10,5 @@ export interface ApiError {
   errors?: Record<string, string[]>;
 }
 
+export type DisabilityType = "none" | "blind" | "low_vision" | "hearing" | "mobility" | "cognitive" | "other";
+
