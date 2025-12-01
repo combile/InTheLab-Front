@@ -5,6 +5,7 @@ import { Svg, Circle } from "react-native-svg";
 import { theme } from "../../styles";
 import BagIcon from "../../../assets/svg/bag.svg";
 import AlarmIcon from "../../../assets/svg/marketing.svg";
+import HeaderIcon from "../../../assets/logo/Header.svg";
 
 const Screen = styled.SafeAreaView`
   flex: 1;
@@ -15,41 +16,23 @@ const Content = styled.ScrollView`
   flex: 1;
 `;
 
-const HeaderSection = styled.View`
-  margin-bottom: 10px;
-  align-items: flex-start;
+const HeaderIconWrapper = styled.View`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: ${props => props.theme.colors.background};
+  padding-top: 50px;
+  padding-bottom: 8px;
+  padding-left: 24px;
 `;
 
-const LogoWrapper = styled.View`
-  flex-direction: row;
-  align-items: flex-start;
-  margin-bottom: 12px;
-`;
-
-const LogoText = styled.Text`
-  font-size: 32px;
-  font-family: ${props => props.theme.fonts.black};
-  color: ${props => props.theme.colors.text.primary};
-  line-height: 40px;
-`;
-
-const LogoDot = styled.View`
-  width: 8px;
-  height: 8px;
-  border-radius: 4px;
-  background-color: ${props => props.theme.colors.primary};
-  margin-top: 8px;
-  margin-left: 2px;
-`;
-
-const LabName = styled.Text`
-  color: #000;
-  font-feature-settings: "liga" off, "clig" off;
-  font-family: ${props => props.theme.fonts.bold};
+const PageTitle = styled.Text`
   font-size: 22px;
-  font-style: normal;
-  font-weight: 700;
-  line-height: 22px;
+  font-family: ${props => props.theme.fonts.bold};
+  color: ${props => props.theme.colors.text.primary};
+  margin-bottom: 24px;
   letter-spacing: -1px;
 `;
 
@@ -299,23 +282,22 @@ export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm }: MainProps) =>
 
   return (
     <Screen>
+      <HeaderIconWrapper>
+        <HeaderIcon
+          width={24}
+          height={39}
+        />
+      </HeaderIconWrapper>
       <Content
         contentContainerStyle={{
           paddingLeft: 24,
           paddingRight: 24,
-          paddingTop: 12,
+          paddingTop: 70,
           paddingBottom: 100,
         }}
         showsVerticalScrollIndicator={false}
       >
-        <HeaderSection>
-          <LogoWrapper>
-            <LogoText>L</LogoText>
-            <LogoDot />
-          </LogoWrapper>
-          <LabName>Mobicom</LabName>
-        </HeaderSection>
-
+        <PageTitle>Mobicom</PageTitle>
         <CardsRow>
           <AttendanceCard
             style={AttendanceCardShadow}

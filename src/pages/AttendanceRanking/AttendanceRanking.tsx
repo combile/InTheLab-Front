@@ -43,6 +43,13 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
 
   return (
     <Screen>
+      <Header>
+        <BackButton onPress={onGoBack}>
+          <BackIcon />
+        </BackButton>
+        <HeaderTitle>연구실 출근 랭킹</HeaderTitle>
+        <Spacer />
+      </Header>
       <Content
         contentContainerStyle={{
           paddingTop: 16,
@@ -52,14 +59,6 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <Header>
-          <BackButton onPress={onGoBack}>
-            <BackIcon />
-          </BackButton>
-          <HeaderTitle>연구실 출근 랭킹</HeaderTitle>
-          <Spacer />
-        </Header>
-
         <HighlightCard style={sectionShadow}>
           <Avatar source={{ uri: personalRecord.avatar }} />
           <HighlightInfo>
@@ -139,7 +138,12 @@ const Header = styled.View`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  padding-left: 24px;
+  padding-right: 24px;
+  background-color: ${props => props.theme.colors.background};
+  z-index: 10;
 `;
 
 const BackButton = styled.TouchableOpacity`
