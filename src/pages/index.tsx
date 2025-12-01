@@ -1,4 +1,6 @@
 export { MyPage } from "./MyPage";
+export { Setting } from "./MyPage";
+export { Announcement } from "./MyPage";
 export { AttendanceRanking } from "./AttendanceRanking";
 export { Splash } from "./splash";
 export { Main } from "./main";

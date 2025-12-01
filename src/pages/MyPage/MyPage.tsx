@@ -1,6 +1,6 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import styled from "styled-components/native";
-import { Animated, Platform, StyleSheet, TouchableOpacity } from "react-native";
+import { Animated, Platform, StyleSheet, TouchableOpacity, Modal } from "react-native";
 import type { StyleProp, TouchableOpacityProps, ViewStyle } from "react-native";
 import { Svg, Path } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
@@ -8,6 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import ChartIcon from "../../../assets/myPage/Chart.svg";
 import GoToWorkIcon from "../../../assets/myPage/GoToWork.svg";
 import LogoutIcon from "../../../assets/myPage/Logout.svg";
+import HeaderIcon from "../../../assets/logo/Header.svg";
 
 const quickActions = [
   { id: "ranking", label: "출근 랭킹", Icon: ChartIcon },
@@ -22,7 +23,7 @@ const menuItems: Array<{
 }> = [
   { id: "notice", label: "공지사항" },
   { id: "settings", label: "설정" },
-  { id: "alarm", label: "알리미" },
+  { id: "logout", label: "로그아웃" },
   { id: "request", label: "출석 요청" },
 ];
 
@@ -54,28 +55,54 @@ const menuItemShadow =
 
 interface MyPageProps {
   onNavigateRanking?: () => void;
+  onNavigateSetting?: () => void;
+  onNavigateAnnouncement?: () => void;
+  onLogout?: () => void;
 }
 
-export const MyPage = ({ onNavigateRanking }: MyPageProps) => {
+export const MyPage = ({ onNavigateRanking, onNavigateSetting, onNavigateAnnouncement, onLogout }: MyPageProps) => {
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showAttendanceRequestModal, setShowAttendanceRequestModal] = useState(false);
+
+  const handleLogoutPress = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = () => {
+    setShowLogoutModal(false);
+    onLogout?.();
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutModal(false);
+  };
+
+  const handleAttendanceRequestPress = () => {
+    setShowAttendanceRequestModal(true);
+  };
+
+  const handleAttendanceRequestConfirm = () => {
+    setShowAttendanceRequestModal(false);
+  };
+
   return (
     <Screen>
+      <HeaderIconWrapper>
+        <HeaderIcon
+          width={24}
+          height={39}
+        />
+      </HeaderIconWrapper>
       <Content
         contentContainerStyle={{
           paddingLeft: 24,
           paddingRight: 24,
-          paddingTop: 12,
+          paddingTop: 70,
           paddingBottom: 40,
         }}
         showsVerticalScrollIndicator={false}
       >
-        <HeaderSection>
-          <LogoWrapper>
-            <LogoText>L</LogoText>
-            <LogoDot />
-          </LogoWrapper>
-          <HeaderTitle>마이페이지</HeaderTitle>
-        </HeaderSection>
-
+        <PageTitle>마이페이지</PageTitle>
         <UserCard style={cardShadow}>
           <UserInfo>
             <Avatar
@@ -130,25 +157,82 @@ export const MyPage = ({ onNavigateRanking }: MyPageProps) => {
         </SummaryCard>
 
         <MenuCard>
-          {menuItems.map((item, index) => (
-            <GradientTouchable
-              key={item.id}
-              borderRadius={22}
-              style={[
-                styles.menuItemWrapper,
-                menuItemShadow,
-                { marginBottom: index === menuItems.length - 1 ? 0 : 12 },
-              ]}
-              contentStyle={styles.menuItemContent}
-            >
-              <MenuLabel>{item.label}</MenuLabel>
-              <Chevron>
-                <ChevronIcon />
-              </Chevron>
-            </GradientTouchable>
-          ))}
+          {menuItems.map((item, index) => {
+            const handlePress =
+              item.id === "settings"
+                ? onNavigateSetting
+                : item.id === "notice"
+                ? onNavigateAnnouncement
+                : item.id === "logout"
+                ? handleLogoutPress
+                : item.id === "request"
+                ? handleAttendanceRequestPress
+                : undefined;
+            return (
+              <GradientTouchable
+                key={item.id}
+                borderRadius={22}
+                style={[
+                  styles.menuItemWrapper,
+                  menuItemShadow,
+                  { marginBottom: index === menuItems.length - 1 ? 0 : 12 },
+                ]}
+                contentStyle={styles.menuItemContent}
+                onPress={handlePress}
+                activeOpacity={handlePress ? 0.85 : 1}
+                disabled={!handlePress}
+              >
+                <MenuLabel>{item.label}</MenuLabel>
+                <Chevron>
+                  <ChevronIcon />
+                </Chevron>
+              </GradientTouchable>
+            );
+          })}
         </MenuCard>
       </Content>
+
+      <Modal
+        visible={showLogoutModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleLogoutCancel}
+      >
+        <ModalOverlay onPress={handleLogoutCancel}>
+          <ModalContent style={modalShadow}>
+            <ModalTitle>로그아웃하시겠습니까?</ModalTitle>
+            <ModalButtonContainer>
+              <ModalCancelButton onPress={handleLogoutCancel}>
+                <ModalCancelText>취소</ModalCancelText>
+              </ModalCancelButton>
+              <ModalConfirmButton onPress={handleLogoutConfirm}>
+                <ModalConfirmText>확인</ModalConfirmText>
+              </ModalConfirmButton>
+            </ModalButtonContainer>
+          </ModalContent>
+        </ModalOverlay>
+      </Modal>
+
+      <Modal
+        visible={showAttendanceRequestModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleAttendanceRequestConfirm}
+      >
+        <ModalOverlay onPress={handleAttendanceRequestConfirm}>
+          <ModalContent style={modalShadow}>
+            <ModalTitle>출석이 요청되었습니다</ModalTitle>
+            <ModalButtonContainer>
+              <ModalConfirmButton
+                onPress={handleAttendanceRequestConfirm}
+                style={{ flex: 1 }}
+              >
+                <ModalConfirmText>확인</ModalConfirmText>
+              </ModalConfirmButton>
+            </ModalButtonContainer>
+          </ModalContent>
+        </ModalOverlay>
+      </Modal>
     </Screen>
   );
 };
@@ -162,37 +246,24 @@ const Content = styled.ScrollView`
   flex: 1;
 `;
 
-const HeaderSection = styled.View`
-  margin-bottom: 24px;
-  align-items: flex-start;
+const HeaderIconWrapper = styled.View`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: ${props => props.theme.colors.background};
+  padding-top: 50px;
+  padding-bottom: 8px;
+  padding-left: 24px;
 `;
 
-const LogoWrapper = styled.View`
-  flex-direction: row;
-  align-items: flex-start;
-  margin-bottom: 12px;
-`;
-
-const LogoText = styled.Text`
-  font-size: 32px;
-  font-family: ${props => props.theme.fonts.black};
-  color: ${props => props.theme.colors.text.primary};
-  line-height: 40px;
-`;
-
-const LogoDot = styled.View`
-  width: 8px;
-  height: 8px;
-  border-radius: 4px;
-  background-color: ${props => props.theme.colors.primary};
-  margin-top: 8px;
-  margin-left: 2px;
-`;
-
-const HeaderTitle = styled.Text`
+const PageTitle = styled.Text`
   font-size: 22px;
   font-family: ${props => props.theme.fonts.bold};
   color: ${props => props.theme.colors.text.primary};
+  margin-bottom: 24px;
+  letter-spacing: -1px;
 `;
 
 const UserCard = styled.View`
@@ -478,6 +549,79 @@ const GradientTouchableInner = styled.View<{ $borderRadius: number }>`
   border-radius: ${props => props.$borderRadius - 1}px;
   background-color: ${props => props.theme.colors.surface};
   margin: 1px;
+`;
+
+const modalShadow =
+  Platform.OS === "ios"
+    ? {
+        shadowColor: "rgba(16, 28, 71, 0.2)",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 1,
+        shadowRadius: 24,
+      }
+    : {
+        elevation: 8,
+      };
+
+const ModalOverlay = styled.TouchableOpacity`
+  flex: 1;
+  background-color: rgba(0, 0, 0, 0.5);
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+`;
+
+const ModalContent = styled.View`
+  background-color: ${props => props.theme.colors.surface};
+  border-radius: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 320px;
+`;
+
+const ModalTitle = styled.Text`
+  font-size: 18px;
+  font-family: ${props => props.theme.fonts.bold};
+  color: ${props => props.theme.colors.text.primary};
+  text-align: center;
+  margin-bottom: 24px;
+`;
+
+const ModalButtonContainer = styled.View`
+  flex-direction: row;
+  column-gap: 12px;
+`;
+
+const ModalCancelButton = styled.TouchableOpacity`
+  flex: 1;
+  background-color: ${props => props.theme.colors.border};
+  border-radius: 12px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ModalCancelText = styled.Text`
+  font-size: 16px;
+  font-family: ${props => props.theme.fonts.semiBold};
+  color: ${props => props.theme.colors.text.secondary};
+`;
+
+const ModalConfirmButton = styled.TouchableOpacity`
+  flex: 1;
+  background-color: ${props => props.theme.colors.primary};
+  border-radius: 12px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ModalConfirmText = styled.Text`
+  font-size: 16px;
+  font-family: ${props => props.theme.fonts.semiBold};
+  color: #ffffff;
 `;
 
 const styles = StyleSheet.create({

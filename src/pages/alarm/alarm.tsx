@@ -70,6 +70,13 @@ const messageItemShadow =
 export const Alarm = ({ onGoBack }: AlarmProps) => {
   return (
     <Screen>
+      <Header>
+        <BackButton onPress={onGoBack}>
+          <BackIcon />
+        </BackButton>
+        <HeaderTitle>알라미</HeaderTitle>
+        <Spacer />
+      </Header>
       <Content
         contentContainerStyle={{
           paddingTop: 16,
@@ -79,14 +86,6 @@ export const Alarm = ({ onGoBack }: AlarmProps) => {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <Header>
-          <BackButton onPress={onGoBack}>
-            <BackIcon />
-          </BackButton>
-          <HeaderTitle>알라미</HeaderTitle>
-          <Spacer />
-        </Header>
-
         {todayMessages.length > 0 && (
           <Section>
             <SectionTitle>오늘</SectionTitle>
@@ -154,7 +153,12 @@ const Header = styled.View`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  padding-left: 24px;
+  padding-right: 24px;
+  background-color: ${props => props.theme.colors.background};
+  z-index: 10;
 `;
 
 const BackButton = styled.TouchableOpacity`
