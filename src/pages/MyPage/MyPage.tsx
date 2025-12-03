@@ -305,7 +305,7 @@ export const MyPage = ({
     } else if (id === "checkOut") {
       // 퇴근 로직
       try {
-        await attendanceService.checkOut({});
+        await attendanceService.checkOut();
         Alert.alert("알림", "퇴근 처리가 완료되었습니다.");
         await fetchUserData();
       } catch (e: any) {
