@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components/native";
-import { Platform } from "react-native";
+import { Platform, ActivityIndicator, RefreshControl } from "react-native";
 import { Svg, Circle } from "react-native-svg";
 import { theme } from "../../styles";
 import BagIcon from "../../../assets/svg/bag.svg";
 import AlarmIcon from "../../../assets/svg/marketing.svg";
 import HeaderIcon from "../../../assets/logo/Header.svg";
+import { attendanceService } from "../../api/attendance";
+import { RankingItem } from "../../types";
 
 const Screen = styled.SafeAreaView`
   flex: 1;
@@ -168,6 +170,7 @@ const AttendanceItemNameContainer = styled.View`
   flex-direction: row;
   align-items: center;
   margin-bottom: 5px;
+  column-gap: 6px;
 `;
 
 const AttendanceItemName = styled.Text`
@@ -178,7 +181,7 @@ const AttendanceItemName = styled.Text`
 `;
 
 const AttendanceItemTimeInName = styled.Text<{ $color: string }>`
-  font-size: 16px;
+  font-size: 14px;
   font-family: ${props => props.theme.fonts.primary};
   color: ${props => props.$color};
   letter-spacing: -0.3px;
@@ -239,46 +242,54 @@ const StatusDot = styled.View<{ $color: string }>`
   background-color: ${props => props.$color};
 `;
 
-const mockAttendanceData = [
-  { name: "우은식", time: "4:20:30", status: "5시간전 출근" },
-  { name: "강윤서", time: "2:15:45", status: "2시간전 출근" },
-  { name: "이민지", time: "0:45:20", status: "1시간전 출근" },
-  { name: "예다은", time: "0:00:00", status: "2일전 출근" },
-  { name: "정민성", time: "0:00:00", status: "5일전 출근" },
-];
-
 interface MainProps {
   onNavigateToTimesheet?: () => void;
   onNavigateToAlarm?: () => void;
 }
 
 export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm }: MainProps) => {
-  // 시간 문자열을 초로 변환하는 함수 (예: "4:20:30" -> 15630)
-  const timeToSeconds = (timeStr: string): number => {
-    if (timeStr === "0:00:00") return 0;
-    const parts = timeStr.split(":").map(Number);
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  const [attendanceData, setAttendanceData] = useState<RankingItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchAttendanceData = async () => {
+    try {
+      // 랭킹 API를 사용하여 현재 구성원 상태 조회
+      // 백엔드 API가 '현재 출근자'만 주는 게 아니라 전체를 주기 때문에 여기서 필터링/정렬
+      const data = await attendanceService.getRanking();
+      
+      // 정렬 로직: 출근한 사람(is_checked_in=true)이 위로, 그 다음 이름순
+      const sortedData = data.sort((a, b) => {
+        if (a.is_checked_in && !b.is_checked_in) return -1;
+        if (!a.is_checked_in && b.is_checked_in) return 1;
+        return a.username.localeCompare(b.username);
+      });
+
+      setAttendanceData(sortedData);
+    } catch (error) {
+      console.error("Failed to fetch main attendance data:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // 정렬: 1. 연구실에 있는 사람(보라색) 우선, 2. 최근 출근 시간 순
-  const sortedAttendanceData = [...mockAttendanceData].sort((a, b) => {
-    const aIsPresent = a.time !== "0:00:00";
-    const bIsPresent = b.time !== "0:00:00";
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAttendanceData();
+    setRefreshing(false);
+  }, []);
 
-    // 연구실에 있는 사람이 위로
-    if (aIsPresent && !bIsPresent) return -1;
-    if (!aIsPresent && bIsPresent) return 1;
+  // useFocusEffect 대신 useEffect 사용
+  useEffect(() => {
+    fetchAttendanceData();
+  }, []);
 
-    // 둘 다 있거나 둘 다 없으면, 최근 출근 시간 순 (작은 값이 위로 = 최근 출근이 위로)
-    const aSeconds = timeToSeconds(a.time);
-    const bSeconds = timeToSeconds(b.time);
-
-    // 0:00:00인 경우는 맨 아래로
-    if (aSeconds === 0 && bSeconds !== 0) return 1;
-    if (aSeconds !== 0 && bSeconds === 0) return -1;
-
-    return aSeconds - bSeconds;
-  });
+  // 초 단위 시간을 "HH:MM" 형식으로 변환 (누적 시간 표시용)
+  const formatTotalTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}시간 ${minutes}분`;
+  };
 
   return (
     <Screen>
@@ -296,6 +307,9 @@ export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm }: MainProps) =>
           paddingBottom: 100,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         <PageTitle>Mobicom</PageTitle>
         <CardsRow>
@@ -332,33 +346,41 @@ export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm }: MainProps) =>
 
         <SectionTitle>현재 Mobicom에는?</SectionTitle>
 
-        <AttendanceList>
-          {sortedAttendanceData.map((item, index) => {
-            const isPresent = item.time !== "0:00:00";
-            const dotColor = isPresent ? "#7F8EFF" : "#BABBC1";
-            const timeColor = isPresent ? "#7F8EFF" : "#BABBC1";
-            return (
-              <AttendanceItem
-                key={index}
-                style={AttendanceItemShadow}
-              >
-                <AttendanceItemContent>
-                  <AttendanceItemNameContainer>
-                    <AttendanceItemName>{item.name}님</AttendanceItemName>
-                    <DotsIconWrapper>
-                      <DotsIcon />
-                    </DotsIconWrapper>
-                    <AttendanceItemTimeInName $color={timeColor}>{item.time}</AttendanceItemTimeInName>
-                  </AttendanceItemNameContainer>
-                  <AttendanceItemTime>{item.status}</AttendanceItemTime>
-                </AttendanceItemContent>
-                <AttendanceItemRight>
-                  <StatusDot $color={dotColor} />
-                </AttendanceItemRight>
-              </AttendanceItem>
-            );
-          })}
-        </AttendanceList>
+        {isLoading ? (
+          <ActivityIndicator color="#7F8EFF" style={{ marginTop: 20 }} />
+        ) : (
+          <AttendanceList>
+            {attendanceData.map((item, index) => {
+              const isPresent = item.is_checked_in;
+              const dotColor = isPresent ? "#7F8EFF" : "#BABBC1";
+              const timeColor = isPresent ? "#7F8EFF" : "#BABBC1";
+              
+              return (
+                <AttendanceItem
+                  key={item.user_id}
+                  style={AttendanceItemShadow}
+                >
+                  <AttendanceItemContent>
+                    <AttendanceItemNameContainer>
+                      <AttendanceItemName>{item.username}님</AttendanceItemName>
+                      <DotsIconWrapper>
+                        <DotsIcon />
+                      </DotsIconWrapper>
+                      {/* 누적 시간 표시 (선택사항) */}
+                      {/* <AttendanceItemTimeInName $color={timeColor}>{formatTotalTime(item.total_time)}</AttendanceItemTimeInName> */}
+                    </AttendanceItemNameContainer>
+                    <AttendanceItemTime>
+                      {isPresent ? "출근 중" : "부재중"}
+                    </AttendanceItemTime>
+                  </AttendanceItemContent>
+                  <AttendanceItemRight>
+                    <StatusDot $color={dotColor} />
+                  </AttendanceItemRight>
+                </AttendanceItem>
+              );
+            })}
+          </AttendanceList>
+        )}
       </Content>
     </Screen>
   );

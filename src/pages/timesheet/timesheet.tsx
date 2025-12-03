@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled from "styled-components/native";
-import { Platform, ScrollView, TouchableOpacity, Animated } from "react-native";
+import { Platform, ScrollView, TouchableOpacity, Animated, RefreshControl } from "react-native";
 import { Svg, Path, Circle } from "react-native-svg";
 import { TimeBottomSheet } from "./timebottomsheet";
 import HeaderIcon from "../../../assets/logo/Header.svg";
+import { attendanceService } from "../../api/attendance";
+import { storage } from "../../utils/storage";
+import { MonthlyStats, CalendarDay } from "../../types";
 
 const Screen = styled.SafeAreaView`
   flex: 1;
@@ -97,41 +100,6 @@ const DateText = styled.Text`
   color: ${props => props.theme.colors.text.primary};
 `;
 
-const DropdownButton = styled.TouchableOpacity`
-  flex-direction: row;
-  align-items: center;
-  column-gap: 4px;
-  padding-left: 8px;
-  padding-right: 8px;
-  padding-top: 4px;
-  padding-bottom: 4px;
-  position: absolute;
-  right: 20px;
-`;
-
-const DropdownText = styled.Text`
-  font-size: 14px;
-  font-family: ${props => props.theme.fonts.medium};
-  color: ${props => props.theme.colors.text.primary};
-`;
-
-const DropdownArrow = () => (
-  <Svg
-    width={8}
-    height={6}
-    viewBox="0 0 8 6"
-    fill="none"
-  >
-    <Path
-      d="M1 1L4 4L7 1"
-      stroke="#191C32"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
 const UserInfoSectionShadow =
   Platform.OS === "ios"
     ? {
@@ -154,13 +122,6 @@ const UserInfoSection = styled(Animated.View)`
 
 const UserInfoLeft = styled.View`
   flex: 1;
-`;
-
-const UserName = styled.Text`
-  font-size: 18px;
-  font-family: ${props => props.theme.fonts.bold};
-  color: ${props => props.theme.colors.text.primary};
-  margin-bottom: 12px;
 `;
 
 const UserStatsRow = styled.View`
@@ -204,7 +165,6 @@ const CalendarSectionShadow =
       }
     : { elevation: 3 };
 
-/* --- 달력 카드 전체 --- */
 const CalendarSection = styled(Animated.View)`
   background-color: ${props => props.theme.colors.surface};
   border-radius: 12px;
@@ -215,7 +175,6 @@ const CalendarSection = styled(Animated.View)`
   margin-bottom: 20px;
 `;
 
-/* --- 요일 헤더 --- */
 const CalendarHeader = styled.View`
   flex-direction: row;
   margin-bottom: 6px;
@@ -242,7 +201,6 @@ const CalendarDayHeaderText = styled.Text<{ $isSunday?: boolean; $isSaturday?: b
   }};
 `;
 
-/* --- 날짜 그리드 --- */
 const CalendarGrid = styled.View`
   flex-direction: row;
   flex-wrap: wrap;
@@ -250,8 +208,7 @@ const CalendarGrid = styled.View`
   margin-bottom: 0px;
 `;
 
-/* 격자 셀 (배경 없이 위치만) */
-const CalendarDay = styled.TouchableOpacity<{
+const CalendarDayWrapper = styled.TouchableOpacity<{
   $isCurrentMonth?: boolean;
   $isSunday?: boolean;
   $isSaturday?: boolean;
@@ -268,7 +225,6 @@ const CalendarDay = styled.TouchableOpacity<{
   margin-bottom: 6px;
 `;
 
-/* 실제 pill 배경 + 숫자 컨테이너 */
 const CalendarDayInner = styled.View<{ $backgroundColor?: string }>`
   width: 80%;
   height: 80%;
@@ -295,7 +251,6 @@ const CalendarDayText = styled.Text<{
   }};
 `;
 
-/* --- 범례 --- */
 const CalendarLegend = styled.View`
   flex-direction: row;
   column-gap: 8px;
@@ -376,162 +331,24 @@ const ChartPercentage = styled.Text`
   z-index: 1;
 `;
 
-interface CalendarDayData {
+interface CalendarDayUI {
   date: number;
+  month: number;
+  year: number;
   isCurrentMonth: boolean;
   isSunday: boolean;
   isSaturday: boolean;
   hours?: number;
+  startTime?: string;
+  endTime?: string;
 }
 
-const getHoursForDate = (date: number): number => {
-  const mockData: Record<number, number> = {
-    1: 0,
-    2: 0,
-    3: 0,
-    4: 0,
-    5: 0,
-    6: 3,
-    7: 0,
-    8: 5,
-    9: 6,
-    10: 7,
-    11: 8,
-    12: 9,
-    13: 10,
-    15: 11,
-    16: 12,
-    17: 13,
-    18: 14,
-    19: 15,
-    20: 16,
-    22: 4,
-    23: 5,
-    24: 6,
-    25: 7,
-  };
-  return mockData[date] || 0;
-};
-
-const getStartTimeForDate = (date: number): string | undefined => {
-  const mockData: Record<number, string> = {
-    6: "09:00",
-    8: "09:30",
-    9: "09:00",
-    10: "08:30",
-    11: "09:00",
-    12: "08:45",
-    13: "09:15",
-    15: "09:00",
-    16: "08:30",
-    17: "09:00",
-    18: "08:45",
-    19: "09:00",
-    20: "08:30",
-    22: "09:30",
-    23: "09:00",
-    24: "09:15",
-    25: "09:00",
-  };
-  return mockData[date];
-};
-
-const getEndTimeForDate = (date: number): string | undefined => {
-  const mockData: Record<number, string> = {
-    6: "12:00",
-    8: "14:30",
-    9: "15:00",
-    10: "15:30",
-    11: "17:00",
-    12: "17:45",
-    13: "19:15",
-    15: "20:00",
-    16: "20:30",
-    17: "22:00",
-    18: "22:45",
-    19: "00:00",
-    20: "00:30",
-    22: "13:30",
-    23: "14:00",
-    24: "15:15",
-    25: "16:00",
-  };
-  return mockData[date];
-};
-
-/* 색상 단계 조금 더 예쁘게 */
 const getBackgroundColor = (hours: number): string => {
   if (hours === 0) return "transparent";
   if (hours <= 4) return "#E6E9FF";
   if (hours <= 7) return "#C8D0FF";
   if (hours <= 10) return "#AAB7FF";
   return "#8FA0FF";
-};
-
-// 월별 목업 데이터
-const getMonthlyData = (year: number, month: number) => {
-  const data: Record<string, { totalHours: string; attendanceRate: number; monthlyRate: number }> = {
-    "2025-1": { totalHours: "45:30", attendanceRate: 65, monthlyRate: 62 },
-    "2025-2": { totalHours: "52:15", attendanceRate: 68, monthlyRate: 65 },
-    "2025-3": { totalHours: "58:20", attendanceRate: 70, monthlyRate: 68 },
-    "2025-4": { totalHours: "63:45", attendanceRate: 72, monthlyRate: 70 },
-    "2025-5": { totalHours: "68:10", attendanceRate: 75, monthlyRate: 73 },
-    "2025-6": { totalHours: "73:46", attendanceRate: 78, monthlyRate: 76 },
-    "2025-7": { totalHours: "79:30", attendanceRate: 80, monthlyRate: 78 },
-    "2025-8": { totalHours: "85:15", attendanceRate: 82, monthlyRate: 80 },
-    "2025-9": { totalHours: "91:20", attendanceRate: 85, monthlyRate: 83 },
-    "2025-10": { totalHours: "96:45", attendanceRate: 87, monthlyRate: 85 },
-    "2025-11": { totalHours: "102:10", attendanceRate: 88, monthlyRate: 86 },
-    "2025-12": { totalHours: "108:30", attendanceRate: 90, monthlyRate: 88 },
-  };
-
-  const key = `${year}-${month}`;
-  return data[key] || { totalHours: "73:46", attendanceRate: 68, monthlyRate: 68 };
-};
-
-const generateCalendar = (year: number, month: number): CalendarDayData[] => {
-  const firstDay = new Date(year, month - 1, 1).getDay();
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const daysInPrevMonth = new Date(year, month - 1, 0).getDate();
-  const calendar: CalendarDayData[] = [];
-
-  // 이전 달
-  for (let i = firstDay - 1; i >= 0; i--) {
-    const prevMonthDate = daysInPrevMonth - i;
-    const date = new Date(year, month - 2, prevMonthDate);
-    calendar.push({
-      date: prevMonthDate,
-      isCurrentMonth: false,
-      isSunday: date.getDay() === 0,
-      isSaturday: date.getDay() === 6,
-    });
-  }
-
-  // 이번 달
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month - 1, day);
-    calendar.push({
-      date: day,
-      isCurrentMonth: true,
-      isSunday: date.getDay() === 0,
-      isSaturday: date.getDay() === 6,
-      hours: getHoursForDate(day),
-    });
-  }
-
-  // 다음 달
-  const remainingDays = 42 - calendar.length;
-  for (let day = 1; day <= remainingDays; day++) {
-    const date = new Date(year, month, day);
-    calendar.push({
-      date: day,
-      isCurrentMonth: false,
-      isSunday: date.getDay() === 0,
-      isSaturday: date.getDay() === 6,
-    });
-  }
-
-  return calendar;
 };
 
 const DonutChart = ({ percentage }: { percentage: number }) => {
@@ -591,9 +408,7 @@ const DonutChart = ({ percentage }: { percentage: number }) => {
 };
 
 export const Timesheet = () => {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 11, 1));
-  const [viewMode, setViewMode] = useState<"월간" | "주간">("월간");
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [selectedDate, setSelectedDate] = useState<{
     date: number;
@@ -603,6 +418,11 @@ export const Timesheet = () => {
     startTime?: string;
     endTime?: string;
   } | null>(null);
+  
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
+  const [calendarMap, setCalendarMap] = useState<Record<string, CalendarDay>>({});
+  const [refreshing, setRefreshing] = useState(false);
+  const [username, setUsername] = useState("");
 
   const calendarOpacity = useRef(new Animated.Value(1)).current;
   const calendarTranslateX = useRef(new Animated.Value(0)).current;
@@ -613,8 +433,99 @@ export const Timesheet = () => {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
+  
+  const loadData = async () => {
+    try {
+      const user = await storage.getUserInfo();
+      setUsername(user?.username || "사용자");
+      
+      if (user?.id) {
+        // 백엔드 API 호출
+        const data = await attendanceService.getCalendar(user.id, year, month);
+        setMonthlyStats(data);
+        
+        // CalendarDay 리스트를 맵으로 변환 (날짜 문자열 키)
+        const map: Record<string, CalendarDay> = {};
+        if (data.calendar) {
+          data.calendar.forEach(day => {
+            map[day.date] = day;
+          });
+        }
+        setCalendarMap(map);
+      }
+    } catch (error) {
+      console.error("Error loading timesheet data:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [currentDate]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [currentDate]);
+
+  const generateCalendar = (year: number, month: number): CalendarDayUI[] => {
+    const firstDay = new Date(year, month - 1, 1).getDay();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysInPrevMonth = new Date(year, month - 1, 0).getDate();
+    const calendar: CalendarDayUI[] = [];
+
+    // 이전 달
+    for (let i = firstDay - 1; i >= 0; i--) {
+      const prevMonthDate = daysInPrevMonth - i;
+      const date = new Date(year, month - 2, prevMonthDate);
+      calendar.push({
+        date: prevMonthDate,
+        month: month - 1,
+        year: year,
+        isCurrentMonth: false,
+        isSunday: date.getDay() === 0,
+        isSaturday: date.getDay() === 6,
+      });
+    }
+
+    // 이번 달
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month - 1, day);
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayData = calendarMap[dateStr];
+      
+      calendar.push({
+        date: day,
+        month: month,
+        year: year,
+        isCurrentMonth: true,
+        isSunday: date.getDay() === 0,
+        isSaturday: date.getDay() === 6,
+        hours: dayData?.total_time || 0,
+        // 백엔드에서 startTime, endTime을 주지 않음
+        startTime: undefined, 
+        endTime: undefined, 
+      });
+    }
+
+    // 다음 달
+    const remainingDays = 42 - calendar.length;
+    for (let day = 1; day <= remainingDays; day++) {
+      const date = new Date(year, month, day);
+      calendar.push({
+        date: day,
+        month: month + 1,
+        year: year,
+        isCurrentMonth: false,
+        isSunday: date.getDay() === 0,
+        isSaturday: date.getDay() === 6,
+      });
+    }
+
+    return calendar;
+  };
+
   const calendar = generateCalendar(year, month);
-  const monthlyData = getMonthlyData(year, month);
 
   const handlePrevMonth = () => {
     Animated.sequence([
@@ -815,6 +726,9 @@ export const Timesheet = () => {
           paddingBottom: 100,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         <DateNavigationSection style={DateNavigationSectionShadow}>
           <ArrowButton onPress={handlePrevMonth}>
@@ -840,15 +754,15 @@ export const Timesheet = () => {
           <UserInfoLeft>
             <UserStatsRow>
               <UserStatItem>
-                <UserNameValue>우은식</UserNameValue>
+                <UserNameValue>{username}님</UserNameValue>
               </UserStatItem>
               <UserStatItem>
                 <UserStatLabel $color="#39B861">누적 출석시간</UserStatLabel>
-                <UserStatValue>{monthlyData.totalHours}</UserStatValue>
+                <UserStatValue>{monthlyStats?.total_time || 0}</UserStatValue>
               </UserStatItem>
               <UserStatItem>
                 <UserStatLabel $color="#E04141">출석률</UserStatLabel>
-                <UserStatValue>{monthlyData.attendanceRate}%</UserStatValue>
+                <UserStatValue>{monthlyStats?.attendance_rate || 0}%</UserStatValue>
               </UserStatItem>
             </UserStatsRow>
           </UserInfoLeft>
@@ -868,8 +782,8 @@ export const Timesheet = () => {
             <AttendanceRateDate>{dateRange}</AttendanceRateDate>
           </AttendanceRateLeft>
           <AttendanceRateChart>
-            <DonutChart percentage={monthlyData.monthlyRate} />
-            <ChartPercentage>{monthlyData.monthlyRate}%</ChartPercentage>
+            <DonutChart percentage={monthlyStats?.attendance_rate || 0} />
+            <ChartPercentage>{monthlyStats?.attendance_rate || 0}%</ChartPercentage>
           </AttendanceRateChart>
         </AttendanceRateSection>
 
@@ -913,18 +827,18 @@ export const Timesheet = () => {
                 if (day.isCurrentMonth) {
                   setSelectedDate({
                     date: day.date,
-                    month: month,
-                    year: year,
+                    month: day.month,
+                    year: day.year,
                     hours: day.hours,
-                    startTime: getStartTimeForDate(day.date),
-                    endTime: getEndTimeForDate(day.date),
+                    startTime: day.startTime,
+                    endTime: day.endTime,
                   });
                   setShowBottomSheet(true);
                 }
               };
 
               return (
-                <CalendarDay
+                <CalendarDayWrapper
                   key={index}
                   $isCurrentMonth={day.isCurrentMonth}
                   $isSunday={day.isSunday}
@@ -948,7 +862,7 @@ export const Timesheet = () => {
                       {day.date}
                     </CalendarDayText>
                   </CalendarDayInner>
-                </CalendarDay>
+                </CalendarDayWrapper>
               );
             })}
           </CalendarGrid>
