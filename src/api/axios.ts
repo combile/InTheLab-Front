@@ -12,7 +12,7 @@ const apiClient = axios.create({
 
 // 요청 인터셉터
 apiClient.interceptors.request.use(
-  async config => {
+  async (config) => {
     // 토큰이 있다면 헤더에 추가
     const token = await storage.getToken();
     if (token) {
@@ -20,17 +20,17 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  error => {
+  (error) => {
     return Promise.reject(error);
   }
 );
 
 // 응답 인터셉터
 apiClient.interceptors.response.use(
-  response => {
+  (response) => {
     return response;
   },
-  async error => {
+  async (error) => {
     // 에러 처리 로직
     if (error.response) {
       // 401 에러 시 로그아웃 처리 등 추가 가능
