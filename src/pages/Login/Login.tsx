@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import styled from "styled-components/native";
-import { TouchableOpacity, ScrollView, Dimensions, Text as RNText, Alert } from "react-native";
+import { TouchableOpacity, ScrollView, Dimensions, Text as RNText, Alert, ActivityIndicator } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { DefaultButton } from "../../components";
 import { TextField } from "../../components";
 import { theme } from "../../styles";
+import { authService } from "../../api/auth";
 
 interface LoginProps {
   onLoginSuccess?: () => void;
@@ -108,15 +109,26 @@ const FindText = styled(RNText)`
 export const Login = ({ onLoginSuccess, onNavigateToSignUp }: LoginProps) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = () => {
-    // 아이디와 비밀번호가 모두 "1234"일 때만 로그인 성공
-    if (username === "1234" && password === "1234") {
+  const handleLogin = async () => {
+    if (!username || !password) {
+      Alert.alert("알림", "아이디와 비밀번호를 입력해주세요.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await authService.login({ username, password });
       if (onLoginSuccess) {
         onLoginSuccess();
       }
-    } else {
-      Alert.alert("로그인 실패", "아이디 또는 비밀번호가 올바르지 않습니다.");
+    } catch (error: any) {
+      console.error("Login failed:", error);
+      const message = error.response?.data?.message || "아이디 또는 비밀번호가 올바르지 않습니다.";
+      Alert.alert("로그인 실패", message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -129,11 +141,13 @@ export const Login = ({ onLoginSuccess, onNavigateToSignUp }: LoginProps) => {
   const handleFindId = () => {
     // TODO: Implement find ID logic
     console.log("Find ID");
+    Alert.alert("알림", "준비 중인 기능입니다.");
   };
 
   const handleFindPassword = () => {
     // TODO: Implement find password logic
     console.log("Find password");
+    Alert.alert("알림", "준비 중인 기능입니다.");
   };
 
   return (
@@ -157,6 +171,7 @@ export const Login = ({ onLoginSuccess, onNavigateToSignUp }: LoginProps) => {
             onChangeText={setUsername}
             placeholder="아이디를 입력하세요"
             autoCapitalize="none"
+            editable={!isLoading}
           />
 
           <TextField
@@ -166,28 +181,34 @@ export const Login = ({ onLoginSuccess, onNavigateToSignUp }: LoginProps) => {
             placeholder="비밀번호를 입력하세요"
             secureTextEntry
             autoCapitalize="none"
+            editable={!isLoading}
           />
 
           <ButtonContainer>
             <DefaultButton
               onPress={handleLogin}
               width="100%"
+              disabled={isLoading}
             >
-              로그인
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                "로그인"
+              )}
             </DefaultButton>
           </ButtonContainer>
 
           <BottomLinksContainer>
             <LeftSection>
-              <SignUpLink onPress={handleSignUp}>
+              <SignUpLink onPress={handleSignUp} disabled={isLoading}>
                 <SignUpText>회원가입</SignUpText>
               </SignUpLink>
             </LeftSection>
             <RightSection>
-              <FindLink onPress={handleFindId}>
+              <FindLink onPress={handleFindId} disabled={isLoading}>
                 <FindText>아이디 찾기</FindText>
               </FindLink>
-              <FindLink onPress={handleFindPassword}>
+              <FindLink onPress={handleFindPassword} disabled={isLoading}>
                 <FindText>비밀번호 찾기</FindText>
               </FindLink>
             </RightSection>

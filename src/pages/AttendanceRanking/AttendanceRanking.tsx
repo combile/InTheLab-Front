@@ -1,28 +1,18 @@
-import React, { useState } from "react";
-import { Platform } from "react-native";
+import React, { useState, useEffect } from "react";
+import { Platform, RefreshControl, ActivityIndicator } from "react-native";
 import styled from "styled-components/native";
 import { Svg, Path } from "react-native-svg";
+import { attendanceService } from "../../api/attendance";
+import { storage } from "../../utils/storage";
+import { RankingItem, User } from "../../types";
 
 interface AttendanceRankingProps {
   onGoBack?: () => void;
 }
 
-const periods = ["이번 주", "이번 달"];
-
-const personalRecord = {
-  name: "우은식님",
-  organization: "Mobicom",
-  duration: "73:48",
-  avatar: "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=120&q=80",
-};
-
-const rankingItems = [
-  { rank: 1, name: "이민지", role: "학부생", duration: "121:25" },
-  { rank: 2, name: "강윤서", role: "학부생", duration: "93:16" },
-  { rank: 3, name: "이수현", role: "학부생", duration: "89:54" },
-  { rank: 4, name: "우은식", role: "학부생", duration: "73:48" },
-  { rank: 5, name: "예다은", role: "학부생", duration: "46:11" },
-];
+// 백엔드 API는 기간별 필터링을 지원하지 않으므로 일단 "전체"만 보여주거나
+// 프론트엔드에서 필터링할 수 없으니 단일 옵션으로 변경하거나 API 스펙에 맞춤
+const periods = ["누적"]; 
 
 const sectionShadow =
   Platform.OS === "ios"
@@ -38,8 +28,60 @@ const sectionShadow =
 
 export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
   const [activePeriod, setActivePeriod] = useState(periods[0]);
-  const featured = rankingItems.slice(0, 3);
-  const others = rankingItems.slice(3);
+  const [rankingData, setRankingData] = useState<RankingItem[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = async () => {
+    try {
+      const [user, ranking] = await Promise.all([
+        storage.getUserInfo(),
+        attendanceService.getRanking(),
+      ]);
+      
+      setCurrentUser(user);
+      
+      // 백엔드에서 이미 total_time 내림차순 정렬되어 옴
+      // 순위(rank) 정보 추가
+      const rankingWithRank = ranking.map((item, index) => ({
+        ...item,
+        rank: index + 1,
+        // 임시 UI 데이터
+        role: "연구원",
+        avatar: "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=120&q=80"
+      }));
+      
+      setRankingData(rankingWithRank);
+    } catch (error) {
+      console.error("Failed to load ranking data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  // 초 단위 시간을 "HH:MM" 형식으로 변환
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}:${String(minutes).padStart(2, "0")}`;
+  };
+
+  const featured = rankingData.slice(0, 3);
+  const others = rankingData.slice(3);
+
+  // 내 랭킹 정보 찾기
+  const myRanking = rankingData.find(item => item.username === currentUser?.username);
 
   return (
     <Screen>
@@ -58,68 +100,80 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
           paddingRight: 24,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
-        <HighlightCard style={sectionShadow}>
-          <Avatar source={{ uri: personalRecord.avatar }} />
-          <HighlightInfo>
-            <UserName>{personalRecord.name}</UserName>
-            <UserMeta>{personalRecord.organization}</UserMeta>
-          </HighlightInfo>
-          <DurationBlock>
-            <DurationLabel>누적시간</DurationLabel>
-            <DurationValue>{personalRecord.duration}</DurationValue>
-          </DurationBlock>
-        </HighlightCard>
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#7F8EFF" style={{ marginTop: 50 }} />
+        ) : (
+          <>
+            {myRanking && (
+              <HighlightCard style={sectionShadow}>
+                <Avatar source={{ uri: myRanking.avatar }} />
+                <HighlightInfo>
+                  <UserName>{myRanking.username}</UserName>
+                  <UserMeta>{myRanking.lab_name}</UserMeta>
+                </HighlightInfo>
+                <DurationBlock>
+                  <DurationLabel>누적시간</DurationLabel>
+                  <DurationValue>{formatDuration(myRanking.total_time)}</DurationValue>
+                </DurationBlock>
+              </HighlightCard>
+            )}
 
-        <SectionHeader>
-          <SectionTitle>누적시간 랭킹</SectionTitle>
-          <ContextInfo>{activePeriod} 데이터 기준으로 정렬했어요</ContextInfo>
-        </SectionHeader>
+            <SectionHeader>
+              <SectionTitle>누적시간 랭킹</SectionTitle>
+              <ContextInfo>전체 기간 데이터 기준으로 정렬했어요</ContextInfo>
+            </SectionHeader>
 
-        <SegmentControl>
-          {periods.map(period => (
-            <SegmentButton
-              key={period}
-              $active={period === activePeriod}
-              onPress={() => setActivePeriod(period)}
-              activeOpacity={0.9}
-            >
-              <SegmentLabel $active={period === activePeriod}>{period}</SegmentLabel>
-            </SegmentButton>
-          ))}
-        </SegmentControl>
+            {/* 기간 선택 (지금은 '누적' 하나뿐) */}
+            <SegmentControl>
+              {periods.map(period => (
+                <SegmentButton
+                  key={period}
+                  $active={period === activePeriod}
+                  onPress={() => setActivePeriod(period)}
+                  activeOpacity={0.9}
+                >
+                  <SegmentLabel $active={period === activePeriod}>{period}</SegmentLabel>
+                </SegmentButton>
+              ))}
+            </SegmentControl>
 
-        <PodiumRow>
-          {featured.map(entry => (
-            <PodiumCard
-              key={entry.rank}
-              style={sectionShadow}
-              $primary={entry.rank === 1}
-            >
-              <PodiumBadge $primary={entry.rank === 1}>
-                {entry.rank === 1 ? <CrownIcon /> : <PodiumBadgeText>{`${entry.rank}`}</PodiumBadgeText>}
-              </PodiumBadge>
-              <PodiumName>{entry.name}</PodiumName>
-              <PodiumRole>{entry.role}</PodiumRole>
-              <PodiumDuration>{entry.duration}</PodiumDuration>
-            </PodiumCard>
-          ))}
-        </PodiumRow>
+            <PodiumRow>
+              {featured.map(entry => (
+                <PodiumCard
+                  key={entry.user_id}
+                  style={sectionShadow}
+                  $primary={entry.rank === 1}
+                >
+                  <PodiumBadge $primary={entry.rank === 1}>
+                    {entry.rank === 1 ? <CrownIcon /> : <PodiumBadgeText>{`${entry.rank}`}</PodiumBadgeText>}
+                  </PodiumBadge>
+                  <PodiumName>{entry.username}</PodiumName>
+                  <PodiumRole>{entry.role}</PodiumRole>
+                  <PodiumDuration>{formatDuration(entry.total_time)}</PodiumDuration>
+                </PodiumCard>
+              ))}
+            </PodiumRow>
 
-        <RankingList>
-          {others.map(item => (
-            <RankingCell key={item.rank}>
-              <CellLeft>
-                <CellBadge>{item.rank}</CellBadge>
-                <CellMeta>
-                  <CellRole>{item.role}</CellRole>
-                  <CellName>{item.name}</CellName>
-                </CellMeta>
-              </CellLeft>
-              <CellDuration>{item.duration}</CellDuration>
-            </RankingCell>
-          ))}
-        </RankingList>
+            <RankingList>
+              {others.map(item => (
+                <RankingCell key={item.user_id}>
+                  <CellLeft>
+                    <CellBadge>{item.rank}</CellBadge>
+                    <CellMeta>
+                      <CellRole>{item.role}</CellRole>
+                      <CellName>{item.username}</CellName>
+                    </CellMeta>
+                  </CellLeft>
+                  <CellDuration>{formatDuration(item.total_time)}</CellDuration>
+                </RankingCell>
+              ))}
+            </RankingList>
+          </>
+        )}
       </Content>
     </Screen>
   );
