@@ -2,12 +2,11 @@ import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components/native";
 import { Platform, ActivityIndicator, RefreshControl, DeviceEventEmitter } from "react-native";
 import { Svg, Circle } from "react-native-svg";
-import { theme } from "../../styles";
 import BagIcon from "../../../assets/svg/bag.svg";
 import AlarmIcon from "../../../assets/svg/marketing.svg";
 import HeaderIcon from "../../../assets/logo/Header.svg";
 import { attendanceService } from "../../api/attendance";
-import { RankingItem } from "../../types";
+import { attendanceWebSocket, RankingUser, WebSocketMessage } from "../../api/websocket";
 
 const Screen = styled.SafeAreaView`
   flex: 1;
@@ -180,13 +179,6 @@ const AttendanceItemName = styled.Text`
   letter-spacing: -0.3px;
 `;
 
-const AttendanceItemTimeInName = styled.Text<{ $color: string }>`
-  font-size: 14px;
-  font-family: ${props => props.theme.fonts.primary};
-  color: ${props => props.$color};
-  letter-spacing: -0.3px;
-`;
-
 const DotsIcon = () => (
   <Svg
     width={10}
@@ -194,24 +186,9 @@ const DotsIcon = () => (
     viewBox="0 0 10 2"
     fill="none"
   >
-    <Circle
-      cx={1}
-      cy={1}
-      r={1}
-      fill="#7F8EFF"
-    />
-    <Circle
-      cx={5}
-      cy={1}
-      r={1}
-      fill="#7F8EFF"
-    />
-    <Circle
-      cx={9}
-      cy={1}
-      r={1}
-      fill="#7F8EFF"
-    />
+    <Circle cx={1} cy={1} r={1} fill="#7F8EFF" />
+    <Circle cx={5} cy={1} r={1} fill="#7F8EFF" />
+    <Circle cx={9} cy={1} r={1} fill="#7F8EFF" />
   </Svg>
 );
 
@@ -242,30 +219,34 @@ const StatusDot = styled.View<{ $color: string }>`
   background-color: ${props => props.$color};
 `;
 
+const ConnectionBadge = styled.Text<{ $connected: boolean }>`
+  font-size: 11px;
+  font-family: ${props => props.theme.fonts.medium};
+  color: ${props => props.$connected ? "#39B861" : "#BABBC1"};
+  margin-bottom: 8px;
+`;
+
 interface MainProps {
   onNavigateToTimesheet?: () => void;
   onNavigateToAlarm?: () => void;
-  isActive?: boolean; // 화면이 활성화되어 있는지 여부
+  isActive?: boolean;
 }
 
 export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm, isActive = true }: MainProps) => {
-  const [attendanceData, setAttendanceData] = useState<RankingItem[]>([]);
+  const [attendanceData, setAttendanceData] = useState<RankingUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
+  // REST API fallback (초기 로드 또는 WebSocket 실패 시)
   const fetchAttendanceData = async () => {
     try {
-      // 랭킹 API를 사용하여 현재 구성원 상태 조회
-      // 백엔드 API가 '현재 출근자'만 주는 게 아니라 전체를 주기 때문에 여기서 필터링/정렬
       const data = await attendanceService.getRanking();
-      
-      // 정렬 로직: 출근한 사람(is_checked_in=true)이 위로, 그 다음 이름순
       const sortedData = data.sort((a, b) => {
         if (a.is_checked_in && !b.is_checked_in) return -1;
         if (!a.is_checked_in && b.is_checked_in) return 1;
-        return a.username.localeCompare(b.username);
+        return b.total_time - a.total_time;
       });
-
       setAttendanceData(sortedData);
     } catch (error) {
       console.error("Failed to fetch main attendance data:", error);
@@ -274,58 +255,115 @@ export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm, isActive = true
     }
   };
 
+  // WebSocket 연결 및 메시지 처리
+  useEffect(() => {
+    fetchAttendanceData();
+
+    // WebSocket 연결
+    attendanceWebSocket.connect();
+
+    // 메시지 핸들러
+    const unsubscribeMessage = attendanceWebSocket.onMessage((message: WebSocketMessage) => {
+      if (message.type === "ranking_update" && message.users) {
+        // 서버에서 매초 보내주는 전체 랭킹 데이터로 덮어쓰기
+        const sortedData = [...message.users].sort((a, b) => {
+          if (a.is_checked_in && !b.is_checked_in) return -1;
+          if (!a.is_checked_in && b.is_checked_in) return 1;
+          return b.total_time - a.total_time;
+        });
+        setAttendanceData(sortedData);
+        setIsLoading(false);
+      } else if (message.type === "user_check_in" && message.user) {
+        // 출근 이벤트
+        setAttendanceData(prev => {
+          const updated = prev.map(item =>
+            item.user_id === message.user!.user_id
+              ? { ...item, ...message.user! }
+              : item
+          );
+          // 사용자가 목록에 없으면 추가
+          if (!prev.find(item => item.user_id === message.user!.user_id)) {
+            updated.push(message.user!);
+          }
+          return updated.sort((a, b) => {
+            if (a.is_checked_in && !b.is_checked_in) return -1;
+            if (!a.is_checked_in && b.is_checked_in) return 1;
+            return b.total_time - a.total_time;
+          });
+        });
+      } else if (message.type === "user_check_out" && message.user) {
+        // 퇴근 이벤트
+        setAttendanceData(prev => {
+          return prev.map(item =>
+            item.user_id === message.user!.user_id
+              ? { ...item, ...message.user! }
+              : item
+          ).sort((a, b) => {
+            if (a.is_checked_in && !b.is_checked_in) return -1;
+            if (!a.is_checked_in && b.is_checked_in) return 1;
+            return b.total_time - a.total_time;
+          });
+        });
+      }
+    });
+
+    const unsubscribeConnect = attendanceWebSocket.onConnect(() => {
+      console.log("[Main] WebSocket 연결됨");
+      setIsConnected(true);
+    });
+
+    const unsubscribeDisconnect = attendanceWebSocket.onDisconnect(() => {
+      console.log("[Main] WebSocket 연결 해제됨");
+      setIsConnected(false);
+    });
+
+    return () => {
+      unsubscribeMessage();
+      unsubscribeConnect();
+      unsubscribeDisconnect();
+      attendanceWebSocket.disconnect();
+    };
+  }, []);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchAttendanceData();
+    // WebSocket 재연결
+    if (!attendanceWebSocket.isConnected()) {
+      attendanceWebSocket.connect();
+    }
     setRefreshing(false);
   }, []);
 
-  // 컴포넌트 마운트 시 데이터 로드
-  useEffect(() => {
-    fetchAttendanceData();
-  }, []);
-
-  // 화면이 활성화될 때마다 데이터 새로고침 (isActive가 변경될 때)
-  useEffect(() => {
-    if (isActive) {
-      fetchAttendanceData();
-    }
-  }, [isActive]);
-
-  // 화면 새로고침 이벤트 리스너
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener("refreshScreen", (data) => {
       if (data.screen === "main") {
         fetchAttendanceData();
       }
     });
-
-    return () => {
-      subscription.remove();
-    };
+    return () => subscription.remove();
   }, []);
 
-  // 초 단위 시간을 "HH:MM" 형식으로 변환 (누적 시간 표시용)
-  const formatTotalTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}시간 ${minutes}분`;
+  // 시간(float)을 "H시간 M분 S초" 형식으로 변환
+  const formatTotalTime = (hours: number) => {
+    const totalSeconds = Math.floor(hours * 3600);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return `${h}시간 ${m}분 ${s}초`;
   };
 
   return (
     <Screen>
       <HeaderIconWrapper>
-        <HeaderIcon
-          width={24}
-          height={39}
-        />
+        <HeaderIcon width={100} height={30} />
       </HeaderIconWrapper>
       <Content
         contentContainerStyle={{
+          paddingTop: 90,
+          paddingBottom: 24,
           paddingLeft: 24,
           paddingRight: 24,
-          paddingTop: 70,
-          paddingBottom: 100,
         }}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -342,10 +380,7 @@ export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm, isActive = true
             <CardTitle>출근부</CardTitle>
             <CardSubtitle numberOfLines={1}>나의 출근 기록은?</CardSubtitle>
             <CardIconWrapper>
-              <BagIcon
-                width={48}
-                height={48}
-              />
+              <BagIcon width={48} height={48} />
             </CardIconWrapper>
           </AttendanceCard>
 
@@ -357,10 +392,7 @@ export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm, isActive = true
             <AlarmCardTitle>알리미</AlarmCardTitle>
             <AlarmCardSubtitle numberOfLines={1}>연구실 소식 확인!</AlarmCardSubtitle>
             <CardIconWrapper>
-              <AlarmIcon
-                width={48}
-                height={48}
-              />
+              <AlarmIcon width={48} height={48} />
             </CardIconWrapper>
           </AlarmCard>
         </CardsRow>
@@ -371,27 +403,24 @@ export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm, isActive = true
           <ActivityIndicator color="#7F8EFF" style={{ marginTop: 20 }} />
         ) : (
           <AttendanceList>
-            {attendanceData.map((item, index) => {
+            {attendanceData.map((item) => {
               const isPresent = item.is_checked_in;
               const dotColor = isPresent ? "#7F8EFF" : "#BABBC1";
-              const timeColor = isPresent ? "#7F8EFF" : "#BABBC1";
-              
+
               return (
-                <AttendanceItem
-                  key={item.user_id}
-                  style={AttendanceItemShadow}
-                >
+                <AttendanceItem key={item.user_id} style={AttendanceItemShadow}>
                   <AttendanceItemContent>
                     <AttendanceItemNameContainer>
                       <AttendanceItemName>{item.username}님</AttendanceItemName>
                       <DotsIconWrapper>
                         <DotsIcon />
                       </DotsIconWrapper>
-                      {/* 누적 시간 표시 (선택사항) */}
-                      {/* <AttendanceItemTimeInName $color={timeColor}>{formatTotalTime(item.total_time)}</AttendanceItemTimeInName> */}
                     </AttendanceItemNameContainer>
                     <AttendanceItemTime>
-                      {isPresent ? "출근 중" : "부재중"}
+                      {isPresent
+                        ? `출근 중 · ${formatTotalTime(item.total_time)}`
+                        : `부재 중 · ${formatTotalTime(item.total_time)}`
+                      }
                     </AttendanceItemTime>
                   </AttendanceItemContent>
                   <AttendanceItemRight>

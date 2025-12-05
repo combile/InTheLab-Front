@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Platform, RefreshControl, ActivityIndicator } from "react-native";
+import { Platform, RefreshControl, ActivityIndicator, View, Text as RNText } from "react-native";
 import styled from "styled-components/native";
 import { Svg, Path } from "react-native-svg";
 import { attendanceService } from "../../api/attendance";
+import { attendanceWebSocket, RankingUser, WebSocketMessage } from "../../api/websocket";
 import { storage } from "../../utils/storage";
 import { RankingItem, User } from "../../types";
 
@@ -32,6 +33,7 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
   const loadData = async () => {
     try {
@@ -42,12 +44,10 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
       
       setCurrentUser(user);
       
-      // 백엔드에서 이미 total_time 내림차순 정렬되어 옴
       // 순위(rank) 정보 추가
       const rankingWithRank = ranking.map((item, index) => ({
         ...item,
         rank: index + 1,
-        // 임시 UI 데이터
         role: "연구원",
         avatar: "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=120&q=80"
       }));
@@ -60,8 +60,56 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
     }
   };
 
+  // WebSocket 연결 및 메시지 처리
   useEffect(() => {
+    // 초기 데이터 로드
     loadData();
+
+    // WebSocket 연결
+    attendanceWebSocket.connect();
+
+    // 메시지 핸들러 등록
+    const unsubscribeMessage = attendanceWebSocket.onMessage((message: WebSocketMessage) => {
+      if (message.type === "ranking_update" && message.users) {
+        // 실시간 랭킹 업데이트
+        const rankingWithRank = message.users.map((item, index) => ({
+          ...item,
+          rank: index + 1,
+          role: "연구원",
+          avatar: "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=120&q=80"
+        }));
+        setRankingData(rankingWithRank);
+        setIsLoading(false);
+      } else if ((message.type === "user_check_in" || message.type === "user_check_out") && message.user) {
+        // 단일 사용자 업데이트
+        setRankingData(prev => {
+          const updated = prev.map(item => 
+            item.user_id === message.user!.user_id 
+              ? { ...item, ...message.user!, rank: item.rank }
+              : item
+          );
+          // 시간순 재정렬
+          return updated.sort((a, b) => b.total_time - a.total_time)
+            .map((item, index) => ({ ...item, rank: index + 1 }));
+        });
+      }
+    });
+
+    const unsubscribeConnect = attendanceWebSocket.onConnect(() => {
+      setIsConnected(true);
+    });
+
+    const unsubscribeDisconnect = attendanceWebSocket.onDisconnect(() => {
+      setIsConnected(false);
+    });
+
+    // 클린업
+    return () => {
+      unsubscribeMessage();
+      unsubscribeConnect();
+      unsubscribeDisconnect();
+      attendanceWebSocket.disconnect();
+    };
   }, []);
 
   const onRefresh = async () => {
@@ -70,11 +118,20 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
     setRefreshing(false);
   };
 
-  // 초 단위 시간을 "HH:MM" 형식으로 변환
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}:${String(minutes).padStart(2, "0")}`;
+  // 시간(float) 단위를 "HH:MM" 형식으로 변환
+  const formatDuration = (hours: number) => {
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    return `${h}:${String(m).padStart(2, "0")}`;
+  };
+
+  // 시간(float)을 "H시간 M분 S초" 형식으로 변환 (실시간용)
+  const formatDurationWithSeconds = (hours: number) => {
+    const totalSeconds = Math.floor(hours * 3600);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
   const featured = rankingData.slice(0, 3);
@@ -90,7 +147,7 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
           <BackIcon />
         </BackButton>
         <HeaderTitle>연구실 출근 랭킹</HeaderTitle>
-        <Spacer />
+        <ConnectionStatus $connected={isConnected} />
       </Header>
       <Content
         contentContainerStyle={{
@@ -117,7 +174,7 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
                 </HighlightInfo>
                 <DurationBlock>
                   <DurationLabel>누적시간</DurationLabel>
-                  <DurationValue>{formatDuration(myRanking.total_time)}</DurationValue>
+                  <DurationValue>{formatDurationWithSeconds(myRanking.total_time)}</DurationValue>
                 </DurationBlock>
               </HighlightCard>
             )}
@@ -153,7 +210,8 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
                   </PodiumBadge>
                   <PodiumName>{entry.username}</PodiumName>
                   <PodiumRole>{entry.role}</PodiumRole>
-                  <PodiumDuration>{formatDuration(entry.total_time)}</PodiumDuration>
+                  <PodiumDuration>{formatDurationWithSeconds(entry.total_time)}</PodiumDuration>
+                  {entry.is_checked_in && <LiveBadge>출근중</LiveBadge>}
                 </PodiumCard>
               ))}
             </PodiumRow>
@@ -168,7 +226,10 @@ export const AttendanceRanking = ({ onGoBack }: AttendanceRankingProps) => {
                       <CellName>{item.username}</CellName>
                     </CellMeta>
                   </CellLeft>
-                  <CellDuration>{formatDuration(item.total_time)}</CellDuration>
+                  <CellRight>
+                    <CellDuration>{formatDurationWithSeconds(item.total_time)}</CellDuration>
+                    {item.is_checked_in && <LiveDot />}
+                  </CellRight>
                 </RankingCell>
               ))}
             </RankingList>
@@ -216,8 +277,11 @@ const HeaderTitle = styled.Text`
   color: ${props => props.theme.colors.text.primary};
 `;
 
-const Spacer = styled.View`
-  width: 36px;
+const ConnectionStatus = styled.View<{ $connected: boolean }>`
+  width: 12px;
+  height: 12px;
+  border-radius: 6px;
+  background-color: ${props => props.$connected ? "#39B861" : "#BABBC1"};
 `;
 
 const HighlightCard = styled.View`
@@ -363,6 +427,17 @@ const PodiumDuration = styled.Text`
   color: ${props => props.theme.colors.primary};
 `;
 
+const LiveBadge = styled.Text`
+  margin-top: 6px;
+  font-size: 11px;
+  font-family: ${props => props.theme.fonts.medium};
+  color: #fff;
+  background-color: #39B861;
+  padding: 3px 8px;
+  border-radius: 10px;
+  overflow: hidden;
+`;
+
 const RankingList = styled.View`
   row-gap: 10px;
 `;
@@ -380,6 +455,12 @@ const CellLeft = styled.View`
   flex-direction: row;
   align-items: center;
   column-gap: 14px;
+`;
+
+const CellRight = styled.View`
+  flex-direction: row;
+  align-items: center;
+  column-gap: 8px;
 `;
 
 const CellBadge = styled.Text`
@@ -415,6 +496,13 @@ const CellDuration = styled.Text`
   color: ${props => props.theme.colors.primary};
 `;
 
+const LiveDot = styled.View`
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: #39B861;
+`;
+
 const BackIcon = () => (
   <Svg
     width={18}
@@ -445,3 +533,5 @@ const CrownIcon = () => (
     />
   </Svg>
 );
+
+
