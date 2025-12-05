@@ -139,7 +139,7 @@ export const MyPage = ({
         "[2] 캐시된 userInfo:",
         userInfo
           ? {
-              id: userInfo.id,
+              user_id: userInfo.user_id,
               username: userInfo.username,
               is_checked_in: userInfo.is_checked_in,
             }
@@ -153,7 +153,7 @@ export const MyPage = ({
           "[2] userProfile API 응답:",
           JSON.stringify(
             {
-              id: newUserInfo.id,
+              user_id: newUserInfo.user_id,
               username: newUserInfo.username,
               is_checked_in: newUserInfo.is_checked_in,
             },
@@ -186,15 +186,15 @@ export const MyPage = ({
       console.log(
         "[3] user 상태 업데이트 완료:",
         userInfo
-          ? { id: userInfo.id, is_checked_in: userInfo.is_checked_in }
+          ? { user_id: userInfo.user_id, is_checked_in: userInfo.is_checked_in }
           : null
       );
       console.log("=== fetchUserData 완료 ===");
 
       // 주간 요약 조회
-      if (userInfo?.id) {
+      if (userInfo?.user_id) {
         try {
-          const summary = await attendanceService.getMyStats(userInfo.id);
+          const summary = await attendanceService.getMyStats(userInfo.user_id);
           setWeeklySummary(summary);
         } catch (e) {
           console.log("Failed to fetch weekly summary", e);
@@ -492,7 +492,7 @@ export const MyPage = ({
         return;
       }
 
-      // 1. 비콘 네이티브 모듈 연결 확인
+      // 비콘 네이티브 모듈 연결 확인
       const nativeBeaconModule = (NativeModules as any).RNiBeacon;
       if (!nativeBeaconModule) {
         console.error("[출근 차단] RNiBeacon 네이티브 모듈이 연결되지 않음");
@@ -503,7 +503,7 @@ export const MyPage = ({
         return;
       }
 
-      // 2. 비콘 범위 확인 + 최근 감지 여부 확인
+      // 비콘 범위 확인 + 최근 감지 여부 확인
       const BEACON_TIMEOUT_MS = 1000; // 1초 이내 감지가 있어야 유효
       const timeSinceLastDetection = Date.now() - lastBeaconDetectedAt.current;
       const isRecentlyDetected = timeSinceLastDetection < BEACON_TIMEOUT_MS;
@@ -524,7 +524,7 @@ export const MyPage = ({
         return;
       }
 
-      // 3. 위치 확인
+      // 위치 확인
       const location = await getCurrentLocation();
       if (!location) return;
 
@@ -540,10 +540,9 @@ export const MyPage = ({
         console.log("[출근] 네이티브 모듈 연결됨:", !!nativeBeaconModule);
 
         // 백엔드 check_in 스펙: CheckInRequest { beacon_connected: bool }
-        // 프론트엔드에서 이미 검증했으므로 true만 보냄
         console.log("[출근] checkIn API 호출 중...");
         const checkInResponse = await attendanceService.checkIn({
-          beacon_connected: true, // 위에서 검증 완료됨
+          beacon_connected: true, 
         });
         console.log(
           "[출근] checkIn API 응답:",
