@@ -37,13 +37,13 @@ export const attendanceService = {
   },
 
   // 내 통계 (주간 비교)
-  getMyStats: async (userId: number): Promise<WeeklyStats> => {
+  getMyStats: async (userId: string): Promise<WeeklyStats> => {
     const response = await apiClient.get<WeeklyStats>(`/attendance/my-stats/${userId}`);
     return response.data;
   },
 
   // 월간 캘린더 및 통계
-  getCalendar: async (userId: number, year: number, month: number): Promise<MonthlyStats> => {
+  getCalendar: async (userId: string, year: number, month: number): Promise<MonthlyStats> => {
     const monthStr = `${year}-${String(month).padStart(2, "0")}`;
     const response = await apiClient.get<MonthlyStats>(`/attendance/calendar/${userId}`, {
       params: { month: monthStr },
