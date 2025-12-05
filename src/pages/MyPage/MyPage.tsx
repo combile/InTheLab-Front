@@ -415,11 +415,15 @@ export const MyPage = ({
       if (Platform.OS === "ios" || Platform.OS === "android") {
         if (Platform.OS === "ios") {
           iosEmitter?.removeAllListeners?.("beaconsDidRange");
-          if (typeof Beacons.stopUpdatingLocation === "function") {
-            Beacons.stopUpdatingLocation();
+          if (Beacons && typeof Beacons.stopUpdatingLocation === "function") {
+            try {
+              Beacons.stopUpdatingLocation();
+            } catch (e) {
+              console.warn("Failed to stop updating location", e);
+            }
           }
         }
-        if (Beacons && Beacons.stopRangingBeaconsInRegion) {
+        if (Beacons && typeof Beacons.stopRangingBeaconsInRegion === "function") {
           try {
             Beacons.stopRangingBeaconsInRegion(TARGET_BEACON);
           } catch (e) {
