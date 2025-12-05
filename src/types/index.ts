@@ -11,7 +11,7 @@ export interface ApiError {
 }
 
 export interface User {
-  id: number; // Backend uses integer
+  user_id: string; // Backend uses string
   username: string;
   email: string;
   lab_name: string; // Renamed from companyName
@@ -37,7 +37,7 @@ export interface CheckInRequest {
 
 export interface Attendance {
   id: number;
-  user_id: number;
+  user_id: string;
   check_in: string;
   check_out?: string;
 }
@@ -52,7 +52,7 @@ export interface AttendanceStatus {
 }
 
 export interface RankingItem {
-  user_id: number;
+  user_id: string;
   username: string;
   lab_name: string;
   total_time: number; // seconds
@@ -74,11 +74,8 @@ export interface CalendarDay {
   date: string; // YYYY-MM-DD
   total_time: number; // hours
   is_attended: boolean;
-
-  // Derived for frontend calendar logic
-  workingHours?: number; // map total_time to this
-  checkInTime?: string; // not provided by backend calendar API, might need separate fetch or simplify
-  checkOutTime?: string;
+  first_check_in?: string; // 최초 출근 시간
+  last_check_out?: string; // 최종 퇴근 시간
 }
 
 export interface MonthlyStats {

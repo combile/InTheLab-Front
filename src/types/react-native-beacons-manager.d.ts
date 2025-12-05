@@ -26,8 +26,11 @@ declare module "react-native-beacons-manager" {
   
   export function startMonitoringForRegion(region: BeaconRegion): Promise<void>;
   export function stopMonitoringForRegion(region: BeaconRegion): Promise<void>;
+
+  export function startUpdatingLocation(): void;
+  export function stopUpdatingLocation(): void;
+  export function shouldDropEmptyRanges(drop: boolean): void;
   
   // Android specific
   export function setHardwareEqualityEnforced(flag: boolean): void;
 }
-
