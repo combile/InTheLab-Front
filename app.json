@@ -14,7 +14,18 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.euk-sik.ieum"
+      "bundleIdentifier": "com.euk-sik.ieum",
+      "fonts": [
+        "assets/fonts/Pretendard-Thin.otf",
+        "assets/fonts/Pretendard-ExtraLight.otf",
+        "assets/fonts/Pretendard-Light.otf",
+        "assets/fonts/Pretendard-Regular.ttf",
+        "assets/fonts/Pretendard-Medium.otf",
+        "assets/fonts/Pretendard-SemiBold.otf",
+        "assets/fonts/Pretendard-Bold.ttf",
+        "assets/fonts/Pretendard-ExtraBold.otf",
+        "assets/fonts/Pretendard-Black.otf"
+      ]
     },
     "android": {
       "adaptiveIcon": {
