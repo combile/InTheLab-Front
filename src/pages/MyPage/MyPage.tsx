@@ -10,6 +10,8 @@ import {
   RefreshControl,
   DeviceEventEmitter,
   PermissionsAndroid,
+  NativeEventEmitter,
+  NativeModules,
 } from "react-native";
 import type { StyleProp, TouchableOpacityProps, ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -106,6 +108,7 @@ export const MyPage = ({
     null
   );
   const [inBeaconRange, setInBeaconRange] = useState(false);
+  const lastBeaconDetectedAt = useRef<number>(0); // 마지막 비콘 감지 시간 (timestamp)
 
   const fetchUserData = async () => {
     try {
@@ -249,14 +252,40 @@ export const MyPage = ({
 
   // 비콘 감지 로직
   useEffect(() => {
+    const nativeBeaconModule = (NativeModules as any).RNiBeacon;
+
+    console.log("[Beacon] 초기화 시작", {
+      platform: Platform.OS,
+      target: TARGET_BEACON,
+      hasBeaconsModule: !!Beacons,
+      beaconKeys: Beacons ? Object.keys(Beacons) : null,
+      hasNativeModule: !!nativeBeaconModule,
+      nativeModuleKeys: nativeBeaconModule ? Object.keys(nativeBeaconModule) : null,
+    });
+
     const startBeaconScanning = async () => {
       if (Platform.OS === "ios") {
         // iOS 비콘 초기화
         try {
           // Beacons 객체가 null인지 체크
-          if (Beacons) {
+          if (!nativeBeaconModule) {
+            console.warn(
+              "[Beacon][iOS] RNiBeacon native module이 연결되지 않았습니다. Pod 설치 후 다시 빌드가 필요합니다."
+            );
+            return;
+          }
+
+          if (Beacons && typeof Beacons === "object") {
             Beacons.requestAlwaysAuthorization();
+            if (typeof Beacons.startUpdatingLocation === "function") {
+              Beacons.startUpdatingLocation();
+            }
+            if (typeof Beacons.shouldDropEmptyRanges === "function") {
+              Beacons.shouldDropEmptyRanges(false);
+            }
+            console.log("[Beacon][iOS] 권한 요청 완료");
             Beacons.startRangingBeaconsInRegion(TARGET_BEACON);
+            console.log("[Beacon][iOS] Ranging 시작 요청 완료", TARGET_BEACON);
           } else {
             console.warn("Beacons library is not initialized properly.");
           }
@@ -280,6 +309,7 @@ export const MyPage = ({
             Beacons.detectIBeacons();
             try {
               await Beacons.startRangingBeaconsInRegion(TARGET_BEACON);
+              console.log("[Beacon][Android] Ranging 시작 요청 완료", TARGET_BEACON);
             } catch (err) {
               console.log(`Beacons ranging not started, error: ${err}`);
             }
@@ -294,19 +324,83 @@ export const MyPage = ({
 
     startBeaconScanning();
 
-    const subscription = DeviceEventEmitter.addListener(
+    const beaconNativeModule = (NativeModules as any).RNiBeacon;
+    const iosEmitter =
+      Platform.OS === "ios" && beaconNativeModule
+        ? new NativeEventEmitter(beaconNativeModule)
+        : null;
+
+    if (Platform.OS === "ios" && !iosEmitter) {
+      console.warn(
+        "[Beacon][iOS] NativeEventEmitter 초기화 실패: RNiBeacon native module을 찾을 수 없습니다."
+      );
+    }
+
+    const emitter = iosEmitter ?? DeviceEventEmitter;
+
+    const subscription = emitter.addListener(
       "beaconsDidRange",
       (data) => {
+        console.log("[Beacon] 이벤트 수신:", {
+          count: data.beacons?.length ?? 0,
+          raw: data.beacons,
+        });
         if (data.beacons && data.beacons.length > 0) {
-          const found = data.beacons.find(
-            (b: any) =>
-              b.uuid.toLowerCase() === TARGET_BEACON.uuid.toLowerCase() &&
-              b.major === TARGET_BEACON.major &&
-              b.minor === TARGET_BEACON.minor
-          );
+          const targetUUID = TARGET_BEACON.uuid.toLowerCase();
+          const targetMajor = Number(TARGET_BEACON.major);
+          const targetMinor = Number(TARGET_BEACON.minor);
+          let matchedBeacon: any = null;
+
+          const found = data.beacons.find((b: any, index: number) => {
+            const rawUUID =
+              typeof b.uuid === "string"
+                ? b.uuid
+                : typeof b.proximityUUID === "string"
+                ? b.proximityUUID
+                : "";
+            const beaconUUID = rawUUID.toLowerCase();
+            const beaconMajor = Number(b.major);
+            const beaconMinor = Number(b.minor);
+
+            const isMatch =
+              beaconUUID === targetUUID &&
+              !Number.isNaN(beaconMajor) &&
+              !Number.isNaN(beaconMinor) &&
+              beaconMajor === targetMajor &&
+              beaconMinor === targetMinor;
+
+            if (!isMatch) {
+              console.log("[Beacon] 후보 비교 실패", {
+                index,
+                uuid: beaconUUID,
+                major: beaconMajor,
+                minor: beaconMinor,
+                rawMajor: b.major,
+                rawMinor: b.minor,
+                typeMajor: typeof b.major,
+                typeMinor: typeof b.minor,
+                targetMajor,
+                targetMinor,
+                targetUUID,
+              });
+            } else {
+              matchedBeacon = {
+                index,
+                uuid: beaconUUID,
+                major: beaconMajor,
+                minor: beaconMinor,
+                rssi: b.rssi,
+                proximity: b.proximity,
+                accuracy: b.accuracy,
+              };
+            }
+
+            return isMatch;
+          });
           if (found) {
-            console.log("Target Beacon Found!", found);
+            console.log("[Beacon] Target Beacon Found!", matchedBeacon);
             setInBeaconRange(true);
+            lastBeaconDetectedAt.current = Date.now(); // 마지막 감지 시간 기록
           } else {
             setInBeaconRange(false);
           }
@@ -319,6 +413,12 @@ export const MyPage = ({
     return () => {
       subscription.remove();
       if (Platform.OS === "ios" || Platform.OS === "android") {
+        if (Platform.OS === "ios") {
+          iosEmitter?.removeAllListeners?.("beaconsDidRange");
+          if (typeof Beacons.stopUpdatingLocation === "function") {
+            Beacons.stopUpdatingLocation();
+          }
+        }
         if (Beacons && Beacons.stopRangingBeaconsInRegion) {
           try {
             Beacons.stopRangingBeaconsInRegion(TARGET_BEACON);
@@ -388,26 +488,39 @@ export const MyPage = ({
         return;
       }
 
-      // 1. 비콘 확인
-      if (!inBeaconRange) {
-        // 테스트를 위해 비콘 확인 로직을 일시적으로 완화하거나
-        // 실제 디바이스 테스트가 필요함을 알림
-        // Alert.alert(
-        //   "출근 실패",
-        //   "지정된 비콘 구역이 아닙니다. 사무실 내에서 시도해주세요."
-        // );
-        // return;
-
-        // 일단 비콘이 없어도 진행하도록 수정 (사용자 요청이 있을 경우)
-        // 하지만 원래 로직 유지가 맞음. 사용자 쿼리에 "비콘이랑 API 연동해서"라고 했으므로 유지.
+      // 1. 비콘 네이티브 모듈 연결 확인
+      const nativeBeaconModule = (NativeModules as any).RNiBeacon;
+      if (!nativeBeaconModule) {
+        console.error("[출근 차단] RNiBeacon 네이티브 모듈이 연결되지 않음");
         Alert.alert(
           "출근 실패",
-          "지정된 비콘 구역이 아닙니다. 사무실 내에서 시도해주세요."
+          "비콘 모듈이 연결되지 않았습니다. 앱을 재설치하거나 관리자에게 문의하세요."
         );
         return;
       }
 
-      // 2. 위치 확인
+      // 2. 비콘 범위 확인 + 최근 감지 여부 확인
+      const BEACON_TIMEOUT_MS = 1000; // 1초 이내 감지가 있어야 유효
+      const timeSinceLastDetection = Date.now() - lastBeaconDetectedAt.current;
+      const isRecentlyDetected = timeSinceLastDetection < BEACON_TIMEOUT_MS;
+
+      console.log("[출근] 비콘 상태 체크:", {
+        inBeaconRange,
+        lastBeaconDetectedAt: lastBeaconDetectedAt.current,
+        timeSinceLastDetection,
+        isRecentlyDetected,
+      });
+
+      if (!inBeaconRange || !isRecentlyDetected) {
+        console.log("[출근 차단] 비콘 범위 밖 또는 오래된 감지 - inBeaconRange:", inBeaconRange, "isRecentlyDetected:", isRecentlyDetected);
+        Alert.alert(
+          "출근 실패",
+          "비콘 신호가 감지되지 않습니다. 블루투스를 켜고 사무실 내에서 다시 시도해주세요."
+        );
+        return;
+      }
+
+      // 3. 위치 확인
       const location = await getCurrentLocation();
       if (!location) return;
 
@@ -420,11 +533,13 @@ export const MyPage = ({
           user?.is_checked_in
         );
         console.log("[출근] 비콘 상태:", inBeaconRange);
+        console.log("[출근] 네이티브 모듈 연결됨:", !!nativeBeaconModule);
 
         // 백엔드 check_in 스펙: CheckInRequest { beacon_connected: bool }
+        // 프론트엔드에서 이미 검증했으므로 true만 보냄
         console.log("[출근] checkIn API 호출 중...");
         const checkInResponse = await attendanceService.checkIn({
-          beacon_connected: inBeaconRange,
+          beacon_connected: true, // 위에서 검증 완료됨
         });
         console.log(
           "[출근] checkIn API 응답:",
