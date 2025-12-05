@@ -205,8 +205,8 @@ interface TimeBottomSheetProps {
   month: number;
   year: number;
   hours?: number;
-  startTime?: string;
-  endTime?: string;
+  firstCheckIn?: string;
+  lastCheckOut?: string;
 }
 
 export const TimeBottomSheet = ({
@@ -216,8 +216,8 @@ export const TimeBottomSheet = ({
   month,
   year,
   hours = 0,
-  startTime,
-  endTime,
+  firstCheckIn,
+  lastCheckOut,
 }: TimeBottomSheetProps) => {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const percentageAnim = useRef(new Animated.Value(0)).current;
@@ -282,6 +282,21 @@ export const TimeBottomSheet = ({
     return `${year}-${String(month).padStart(2, "0")}-${String(date).padStart(2, "0")} (${dayNames[dayIndex]})`;
   };
 
+  // UTC ISO 문자열을 오전/오후 HH:MM 형식으로 변환
+  const formatTime = (isoString?: string): string => {
+    if (!isoString) return "--";
+    try {
+      const date = new Date(isoString);
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const period = hours < 12 ? "오전" : "오후";
+      const displayHours = hours % 12 || 12;
+      return `${period} ${displayHours}:${String(minutes).padStart(2, "0")}`;
+    } catch {
+      return "--";
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -326,7 +341,7 @@ export const TimeBottomSheet = ({
                     </TimeLeft>
                     <TimeRight>
                       <TimeDate>{formatDateWithDay()}</TimeDate>
-                      <TimeValue $color="#39B861">{startTime || "--"}</TimeValue>
+                      <TimeValue $color="#39B861">{formatTime(firstCheckIn)}</TimeValue>
                     </TimeRight>
                   </TimeSection>
                 </WhiteBox>
@@ -338,7 +353,7 @@ export const TimeBottomSheet = ({
                     </TimeLeft>
                     <TimeRight>
                       <TimeDate>{formatDateWithDay()}</TimeDate>
-                      <TimeValue $color="#E04141">{endTime || "--"}</TimeValue>
+                      <TimeValue $color="#E04141">{formatTime(lastCheckOut)}</TimeValue>
                     </TimeRight>
                   </TimeSection>
                 </WhiteBox>

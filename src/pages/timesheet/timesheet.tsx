@@ -339,8 +339,8 @@ interface CalendarDayUI {
   isSunday: boolean;
   isSaturday: boolean;
   hours?: number;
-  startTime?: string;
-  endTime?: string;
+  firstCheckIn?: string;
+  lastCheckOut?: string;
 }
 
 const getBackgroundColor = (hours: number): string => {
@@ -415,8 +415,8 @@ export const Timesheet = () => {
     month: number;
     year: number;
     hours?: number;
-    startTime?: string;
-    endTime?: string;
+    firstCheckIn?: string;
+    lastCheckOut?: string;
   } | null>(null);
   
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
@@ -439,9 +439,9 @@ export const Timesheet = () => {
       const user = await storage.getUserInfo();
       setUsername(user?.username || "사용자");
       
-      if (user?.id) {
+      if (user?.user_id) {
         // 백엔드 API 호출
-        const data = await attendanceService.getCalendar(user.id, year, month);
+        const data = await attendanceService.getCalendar(user.user_id, year, month);
         setMonthlyStats(data);
         
         // CalendarDay 리스트를 맵으로 변환 (날짜 문자열 키)
@@ -502,9 +502,8 @@ export const Timesheet = () => {
         isSunday: date.getDay() === 0,
         isSaturday: date.getDay() === 6,
         hours: dayData?.total_time || 0,
-        // 백엔드에서 startTime, endTime을 주지 않음
-        startTime: undefined, 
-        endTime: undefined, 
+        firstCheckIn: dayData?.first_check_in,
+        lastCheckOut: dayData?.last_check_out,
       });
     }
 
@@ -758,7 +757,14 @@ export const Timesheet = () => {
               </UserStatItem>
               <UserStatItem>
                 <UserStatLabel $color="#39B861">누적 출석시간</UserStatLabel>
-                <UserStatValue>{monthlyStats?.total_time || 0}</UserStatValue>
+                <UserStatValue>
+                  {(() => {
+                    const hours = monthlyStats?.total_time || 0;
+                    const h = Math.floor(hours);
+                    const m = Math.round((hours - h) * 60);
+                    return `${h}시간 ${m}분`;
+                  })()}
+                </UserStatValue>
               </UserStatItem>
               <UserStatItem>
                 <UserStatLabel $color="#E04141">출석률</UserStatLabel>
@@ -830,8 +836,8 @@ export const Timesheet = () => {
                     month: day.month,
                     year: day.year,
                     hours: day.hours,
-                    startTime: day.startTime,
-                    endTime: day.endTime,
+                    firstCheckIn: day.firstCheckIn,
+                    lastCheckOut: day.lastCheckOut,
                   });
                   setShowBottomSheet(true);
                 }
@@ -895,8 +901,8 @@ export const Timesheet = () => {
           month={selectedDate.month}
           year={selectedDate.year}
           hours={selectedDate.hours}
-          startTime={selectedDate.startTime}
-          endTime={selectedDate.endTime}
+          firstCheckIn={selectedDate.firstCheckIn}
+          lastCheckOut={selectedDate.lastCheckOut}
         />
       )}
     </Screen>
