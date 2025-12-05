@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components/native";
-import { Platform, ActivityIndicator, RefreshControl } from "react-native";
+import { Platform, ActivityIndicator, RefreshControl, DeviceEventEmitter } from "react-native";
 import { Svg, Circle } from "react-native-svg";
 import { theme } from "../../styles";
 import BagIcon from "../../../assets/svg/bag.svg";
@@ -245,9 +245,10 @@ const StatusDot = styled.View<{ $color: string }>`
 interface MainProps {
   onNavigateToTimesheet?: () => void;
   onNavigateToAlarm?: () => void;
+  isActive?: boolean; // 화면이 활성화되어 있는지 여부
 }
 
-export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm }: MainProps) => {
+export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm, isActive = true }: MainProps) => {
   const [attendanceData, setAttendanceData] = useState<RankingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -279,9 +280,29 @@ export const Main = ({ onNavigateToTimesheet, onNavigateToAlarm }: MainProps) =>
     setRefreshing(false);
   }, []);
 
-  // useFocusEffect 대신 useEffect 사용
+  // 컴포넌트 마운트 시 데이터 로드
   useEffect(() => {
     fetchAttendanceData();
+  }, []);
+
+  // 화면이 활성화될 때마다 데이터 새로고침 (isActive가 변경될 때)
+  useEffect(() => {
+    if (isActive) {
+      fetchAttendanceData();
+    }
+  }, [isActive]);
+
+  // 화면 새로고침 이벤트 리스너
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener("refreshScreen", (data) => {
+      if (data.screen === "main") {
+        fetchAttendanceData();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   // 초 단위 시간을 "HH:MM" 형식으로 변환 (누적 시간 표시용)

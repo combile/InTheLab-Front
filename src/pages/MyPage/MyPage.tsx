@@ -83,6 +83,7 @@ interface MyPageProps {
   onNavigateSetting?: () => void;
   onNavigateAnnouncement?: () => void;
   onLogout?: () => void;
+  isActive?: boolean; // 화면이 활성화되어 있는지 여부
 }
 
 export const MyPage = ({
@@ -90,6 +91,7 @@ export const MyPage = ({
   onNavigateSetting,
   onNavigateAnnouncement,
   onLogout,
+  isActive = true,
 }: MyPageProps) => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showAttendanceRequestModal, setShowAttendanceRequestModal] =
@@ -107,32 +109,84 @@ export const MyPage = ({
 
   const fetchUserData = async () => {
     try {
-      // 먼저 저장된 유저 정보 불러오기 시도
-      let userInfo = await storage.getUserInfo();
+      console.log("=== fetchUserData 시작 ===");
 
-      // 항상 최신 정보 업데이트 시도
+      // 출석 상태를 먼저 조회 (가장 중요한 정보)
+      let currentStatus: AttendanceStatus | null = null;
       try {
+        console.log("[1] attendanceService.getStatus() 호출 중...");
+        currentStatus = await attendanceService.getStatus();
+        console.log(
+          "[1] attendanceStatus API 응답:",
+          JSON.stringify(currentStatus, null, 2)
+        );
+        setAttendanceStatus(currentStatus);
+        console.log(
+          "[1] attendanceStatus 상태 업데이트 완료:",
+          currentStatus.is_checked_in
+        );
+      } catch (e) {
+        console.error("[1] Failed to fetch attendance status", e);
+        setAttendanceStatus(null);
+      }
+
+      // 유저 정보 조회
+      let userInfo = await storage.getUserInfo();
+      console.log(
+        "[2] 캐시된 userInfo:",
+        userInfo
+          ? {
+              id: userInfo.id,
+              username: userInfo.username,
+              is_checked_in: userInfo.is_checked_in,
+            }
+          : null
+      );
+
+      try {
+        console.log("[2] userService.getProfile() 호출 중...");
         const newUserInfo = await userService.getProfile();
+        console.log(
+          "[2] userProfile API 응답:",
+          JSON.stringify(
+            {
+              id: newUserInfo.id,
+              username: newUserInfo.username,
+              is_checked_in: newUserInfo.is_checked_in,
+            },
+            null,
+            2
+          )
+        );
         await storage.setUserInfo(newUserInfo);
         userInfo = newUserInfo;
       } catch (e) {
-        console.log(
-          "Failed to fetch user profile, using cached data if available",
+        console.warn(
+          "[2] Failed to fetch user profile, using cached data if available",
           e
         );
       }
 
-      setUser(userInfo);
-
-      // 출석 상태 조회
-      try {
-        const status = await attendanceService.getStatus();
-        setAttendanceStatus(status);
-      } catch (e) {
-        console.log("Failed to fetch attendance status", e);
-        // 에러 시 초기화
-        setAttendanceStatus(null);
+      // 출석 상태가 있으면 user의 is_checked_in을 상태와 동기화
+      if (currentStatus && userInfo) {
+        const beforeSync = userInfo.is_checked_in;
+        userInfo = { ...userInfo, is_checked_in: currentStatus.is_checked_in };
+        console.log(
+          "[3] user.is_checked_in 동기화:",
+          beforeSync,
+          "->",
+          userInfo.is_checked_in
+        );
       }
+
+      setUser(userInfo);
+      console.log(
+        "[3] user 상태 업데이트 완료:",
+        userInfo
+          ? { id: userInfo.id, is_checked_in: userInfo.is_checked_in }
+          : null
+      );
+      console.log("=== fetchUserData 완료 ===");
 
       // 주간 요약 조회
       if (userInfo?.id) {
@@ -155,17 +209,60 @@ export const MyPage = ({
     setRefreshing(false);
   }, []);
 
-  // useFocusEffect 대신 useEffect 사용 (네비게이션 라이브러리 미사용 대응)
+  // 컴포넌트 마운트 시 데이터 로드
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  // 화면이 활성화될 때마다 데이터 새로고침 (isActive가 변경될 때)
+  useEffect(() => {
+    if (isActive) {
+      fetchUserData();
+    }
+  }, [isActive]);
+
+  // 화면 새로고침 이벤트 리스너
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(
+      "refreshScreen",
+      (data) => {
+        if (data.screen === "my") {
+          fetchUserData();
+        }
+      }
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // 시간 포맷팅 함수 (H시간 M분 S초)
+  const formatDuration = (totalHours: number = 0) => {
+    const hours = Math.floor(totalHours);
+    const minutesDecimal = (totalHours - hours) * 60;
+    const minutes = Math.floor(minutesDecimal);
+    const seconds = Math.round((minutesDecimal - minutes) * 60);
+
+    return `${hours}시간 ${minutes}분 ${seconds}초`;
+  };
 
   // 비콘 감지 로직
   useEffect(() => {
     const startBeaconScanning = async () => {
       if (Platform.OS === "ios") {
-        Beacons.requestAlwaysAuthorization();
-        Beacons.startRangingBeaconsInRegion(TARGET_BEACON);
+        // iOS 비콘 초기화
+        try {
+          // Beacons 객체가 null인지 체크
+          if (Beacons) {
+            Beacons.requestAlwaysAuthorization();
+            Beacons.startRangingBeaconsInRegion(TARGET_BEACON);
+          } else {
+            console.warn("Beacons library is not initialized properly.");
+          }
+        } catch (error) {
+          console.warn("Beacon initialization error on iOS:", error);
+        }
       } else if (Platform.OS === "android") {
         // 안드로이드 권한 요청
         try {
@@ -222,7 +319,13 @@ export const MyPage = ({
     return () => {
       subscription.remove();
       if (Platform.OS === "ios" || Platform.OS === "android") {
-        Beacons.stopRangingBeaconsInRegion(TARGET_BEACON);
+        if (Beacons && Beacons.stopRangingBeaconsInRegion) {
+          try {
+            Beacons.stopRangingBeaconsInRegion(TARGET_BEACON);
+          } catch (e) {
+            console.warn("Failed to stop ranging beacons", e);
+          }
+        }
       }
     };
   }, []);
@@ -277,9 +380,26 @@ export const MyPage = ({
       onNavigateRanking?.();
     } else if (id === "checkIn") {
       // 출근 로직
+      const isCheckedIn =
+        attendanceStatus?.is_checked_in ?? user?.is_checked_in ?? false;
+
+      if (isCheckedIn) {
+        Alert.alert("알림", "이미 출근하셨습니다.");
+        return;
+      }
 
       // 1. 비콘 확인
       if (!inBeaconRange) {
+        // 테스트를 위해 비콘 확인 로직을 일시적으로 완화하거나
+        // 실제 디바이스 테스트가 필요함을 알림
+        // Alert.alert(
+        //   "출근 실패",
+        //   "지정된 비콘 구역이 아닙니다. 사무실 내에서 시도해주세요."
+        // );
+        // return;
+
+        // 일단 비콘이 없어도 진행하도록 수정 (사용자 요청이 있을 경우)
+        // 하지만 원래 로직 유지가 맞음. 사용자 쿼리에 "비콘이랑 API 연동해서"라고 했으므로 유지.
         Alert.alert(
           "출근 실패",
           "지정된 비콘 구역이 아닙니다. 사무실 내에서 시도해주세요."
@@ -292,23 +412,158 @@ export const MyPage = ({
       if (!location) return;
 
       try {
+        console.log("=== 출근 처리 시작 ===");
+        console.log(
+          "[출근] 현재 상태 - attendanceStatus:",
+          attendanceStatus?.is_checked_in,
+          "user:",
+          user?.is_checked_in
+        );
+        console.log("[출근] 비콘 상태:", inBeaconRange);
+
         // 백엔드 check_in 스펙: CheckInRequest { beacon_connected: bool }
-        await attendanceService.checkIn({
+        console.log("[출근] checkIn API 호출 중...");
+        const checkInResponse = await attendanceService.checkIn({
           beacon_connected: inBeaconRange,
         });
+        console.log(
+          "[출근] checkIn API 응답:",
+          JSON.stringify(checkInResponse, null, 2)
+        );
+
+        // 상태 즉시 업데이트 (서버 응답 확인 후)
+        console.log("[출근] 로컬 상태 즉시 업데이트 시작");
+        const prevAttendanceStatus = attendanceStatus;
+        const prevUser = user;
+
+        setAttendanceStatus((prev) => {
+          const newStatus = { ...prev, is_checked_in: true };
+          console.log(
+            "[출근] attendanceStatus 업데이트:",
+            prev?.is_checked_in,
+            "->",
+            newStatus.is_checked_in
+          );
+          return newStatus;
+        });
+
+        setUser((prev) => {
+          if (prev) {
+            const newUser = { ...prev, is_checked_in: true };
+            console.log(
+              "[출근] user 업데이트:",
+              prev.is_checked_in,
+              "->",
+              newUser.is_checked_in
+            );
+            return newUser;
+          }
+          return null;
+        });
+
+        console.log("[출근] 로컬 상태 업데이트 완료");
         Alert.alert("알림", "출근 처리가 완료되었습니다.");
-        await fetchUserData();
+
+        // 최신 데이터 다시 불러오기 (약간의 지연 후 - 서버 반영 시간 확보)
+        setTimeout(async () => {
+          console.log("[출근] 1초 후 fetchUserData 호출 시작");
+          console.log(
+            "[출근] fetchUserData 호출 전 상태 - attendanceStatus:",
+            attendanceStatus?.is_checked_in,
+            "user:",
+            user?.is_checked_in
+          );
+
+          try {
+            const statusBefore = await attendanceService.getStatus();
+            console.log(
+              "[출근] status API 직접 호출 응답:",
+              JSON.stringify(statusBefore, null, 2)
+            );
+          } catch (e) {
+            console.error("[출근] status API 직접 호출 실패:", e);
+          }
+
+          await fetchUserData();
+
+          console.log(
+            "[출근] fetchUserData 호출 후 상태 - attendanceStatus:",
+            attendanceStatus?.is_checked_in,
+            "user:",
+            user?.is_checked_in
+          );
+        }, 1000);
       } catch (e: any) {
+        console.error("[출근] 오류 발생:", e);
+        console.error("[출근] 오류 상세:", e.response?.data);
         const message = e.response?.data?.detail || "출근 처리에 실패했습니다.";
         Alert.alert("오류", message);
       }
     } else if (id === "checkOut") {
       // 퇴근 로직
+      const isCheckedIn =
+        attendanceStatus?.is_checked_in ?? user?.is_checked_in ?? false;
+
+      if (!isCheckedIn) {
+        Alert.alert("알림", "출근 상태가 아닙니다.");
+        return;
+      }
+
       try {
-        await attendanceService.checkOut();
+        console.log("=== 퇴근 처리 시작 ===");
+        console.log(
+          "[퇴근] 현재 상태 - attendanceStatus:",
+          attendanceStatus?.is_checked_in,
+          "user:",
+          user?.is_checked_in
+        );
+
+        console.log("[퇴근] checkOut API 호출 중...");
+        const checkOutResponse = await attendanceService.checkOut();
+        console.log(
+          "[퇴근] checkOut API 응답:",
+          JSON.stringify(checkOutResponse, null, 2)
+        );
+
+        // 상태 즉시 업데이트 (서버 응답 확인 후)
+        console.log("[퇴근] 로컬 상태 즉시 업데이트 시작");
+        setAttendanceStatus((prev) => {
+          const newStatus = { ...prev, is_checked_in: false };
+          console.log(
+            "[퇴근] attendanceStatus 업데이트:",
+            prev?.is_checked_in,
+            "->",
+            newStatus.is_checked_in
+          );
+          return newStatus;
+        });
+
+        setUser((prev) => {
+          if (prev) {
+            const newUser = { ...prev, is_checked_in: false };
+            console.log(
+              "[퇴근] user 업데이트:",
+              prev.is_checked_in,
+              "->",
+              newUser.is_checked_in
+            );
+            return newUser;
+          }
+          return null;
+        });
+
+        console.log("[퇴근] 로컬 상태 업데이트 완료");
         Alert.alert("알림", "퇴근 처리가 완료되었습니다.");
-        await fetchUserData();
+
+        // 최신 데이터 다시 불러오기 (약간의 지연 후 - 서버 반영 시간 확보)
+        setTimeout(async () => {
+          console.log("[퇴근] 1초 후 fetchUserData 호출 시작");
+          await fetchUserData();
+          console.log("[퇴근] fetchUserData 호출 완료");
+        }, 1000);
       } catch (e: any) {
+        console.error("[퇴근] 오류 발생:", e);
+        console.error("[퇴근] 오류 상세:", e.response?.data);
         const message = e.response?.data?.detail || "퇴근 처리에 실패했습니다.";
         Alert.alert("오류", message);
       }
@@ -350,7 +605,11 @@ export const MyPage = ({
           <StatusContainer>
             <StatusLabel>현재 상태</StatusLabel>
             <StatusValue>
-              {attendanceStatus?.is_checked_in ? "출근" : "퇴근"}
+              {attendanceStatus
+                ? attendanceStatus.is_checked_in
+                  ? "출근"
+                  : "퇴근"
+                : "-"}
             </StatusValue>
           </StatusContainer>
         </UserCard>
@@ -377,7 +636,7 @@ export const MyPage = ({
           <SummaryText>
             이번주에는{"\n"}
             <SummaryHighlight>
-              {weeklySummary?.this_week_total || 0}시간 출근했어요 !
+              {formatDuration(weeklySummary?.this_week_total)} 출근했어요 !
             </SummaryHighlight>
           </SummaryText>
           <SummaryDescription>

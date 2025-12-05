@@ -3,18 +3,44 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import styled, { ThemeProvider } from "styled-components/native";
 import { theme } from "./src/styles";
-import { Splash, Main, MyPage, Setting, Announcement, AttendanceRanking, Timesheet, Alarm, Login, SignUp } from "./src/pages";
-import { View, Text, Animated } from "react-native";
+import {
+  Splash,
+  Main,
+  MyPage,
+  Setting,
+  Announcement,
+  AttendanceRanking,
+  Timesheet,
+  Alarm,
+  Login,
+  SignUp,
+} from "./src/pages";
+import {
+  View,
+  Text,
+  Animated,
+  Platform,
+  DeviceEventEmitter,
+  PermissionsAndroid,
+} from "react-native";
 import { Footer } from "./src/components";
+import Beacons from "react-native-beacons-manager";
 
 const Screen = styled.View`
   flex: 1;
-  background-color: ${props => props.theme.colors.background};
+  background-color: ${(props) => props.theme.colors.background};
 `;
 
 const AnimatedScreen = styled(Animated.View)`
   flex: 1;
 `;
+
+const TARGET_BEACON = {
+  uuid: "e2c56db5-dffb-48d2-b060-d0f5a71096e0",
+  major: 40011,
+  minor: 57458,
+  identifier: "InTheLab",
+};
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -28,12 +54,30 @@ export default function App() {
     "Pretendard-ExtraBold": require("./assets/fonts/Pretendard-ExtraBold.otf"),
     "Pretendard-Black": require("./assets/fonts/Pretendard-Black.otf"),
   });
-  const [screen, setScreen] = useState<"main" | "my" | "ranking" | "timecard" | "alarm" | "setting" | "announcement">("main");
-  const [prevScreen, setPrevScreen] = useState<"main" | "my" | "ranking" | "timecard" | "alarm" | "setting" | "announcement">("main");
+  const [screen, setScreen] = useState<
+    | "main"
+    | "my"
+    | "ranking"
+    | "timecard"
+    | "alarm"
+    | "setting"
+    | "announcement"
+  >("main");
+  const [prevScreen, setPrevScreen] = useState<
+    | "main"
+    | "my"
+    | "ranking"
+    | "timecard"
+    | "alarm"
+    | "setting"
+    | "announcement"
+  >("main");
 
   const [showSplash, setShowSplash] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentAuthScreen, setCurrentAuthScreen] = useState<"login" | "signup">("login");
+  const [currentAuthScreen, setCurrentAuthScreen] = useState<
+    "login" | "signup"
+  >("login");
 
   const screenOpacity = useRef(new Animated.Value(1)).current;
   const screenTranslateX = useRef(new Animated.Value(0)).current;
@@ -47,6 +91,79 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [fontsLoaded]);
+
+  // 앱 시작 시 비콘 스캔 초기화
+  useEffect(() => {
+    const startBeaconScanning = async () => {
+      // Beacons 모듈이 null인지 확인
+      if (
+        !Beacons ||
+        typeof Beacons.requestAlwaysAuthorization !== "function"
+      ) {
+        console.warn(
+          "Beacons module is not available. Make sure the native module is properly linked."
+        );
+        return;
+      }
+
+      if (Platform.OS === "ios") {
+        try {
+          Beacons.requestAlwaysAuthorization();
+          Beacons.startRangingBeaconsInRegion(TARGET_BEACON);
+          console.log("iOS: Beacon scanning started");
+        } catch (err) {
+          console.error("iOS: Failed to start beacon scanning", err);
+        }
+      } else if (Platform.OS === "android") {
+        try {
+          const granted = await PermissionsAndroid.requestMultiple([
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          ]);
+
+          const allGranted = Object.values(granted).every(
+            (status) => status === PermissionsAndroid.RESULTS.GRANTED
+          );
+
+          if (allGranted) {
+            Beacons.detectIBeacons();
+            try {
+              await Beacons.startRangingBeaconsInRegion(TARGET_BEACON);
+              console.log("Android: Beacon scanning started");
+            } catch (err) {
+              console.error("Android: Failed to start beacon ranging", err);
+            }
+          } else {
+            console.log("Android: Bluetooth permissions not granted");
+          }
+        } catch (err) {
+          console.error("Android: Permission request failed", err);
+        }
+      }
+    };
+
+    // 로그인 후에만 비콘 스캔 시작 (로그인 전에는 불필요)
+    // 하지만 앱 시작 시 바로 시작하는 것이 좋을 수도 있으니 일단 주석 처리
+    // startBeaconScanning();
+
+    // 로그인 상태가 변경되면 비콘 스캔 시작
+    if (!showSplash && isLoggedIn) {
+      startBeaconScanning();
+    }
+
+    // 클린업: 앱 종료 시 비콘 스캔 중지
+    return () => {
+      if (Platform.OS === "ios" || Platform.OS === "android") {
+        try {
+          Beacons.stopRangingBeaconsInRegion(TARGET_BEACON);
+          console.log("Beacon scanning stopped");
+        } catch (err) {
+          console.error("Failed to stop beacon scanning", err);
+        }
+      }
+    };
+  }, [showSplash, isLoggedIn]);
 
   if (!fontsLoaded) {
     return (
@@ -66,8 +183,12 @@ export default function App() {
       newScreen = "timecard";
     }
 
-    // 현재 화면과 동일하면 애니메이션 없이 리턴
-    if (newScreen === screen) return;
+    // 현재 화면과 동일하면 데이터만 새로고침하고 리턴
+    if (newScreen === screen) {
+      // 같은 화면이면 데이터만 새로고침 (DeviceEventEmitter로 이벤트 전송)
+      DeviceEventEmitter.emit("refreshScreen", { screen: newScreen });
+      return;
+    }
 
     // 화면 순서 결정 (timecard < main < my)
     const screenOrder: Record<string, number> = { timecard: 0, main: 1, my: 2 };
@@ -140,6 +261,7 @@ export default function App() {
               <Main
                 onNavigateToTimesheet={() => setScreen("timecard")}
                 onNavigateToAlarm={() => setScreen("alarm")}
+                isActive={screen === "main"}
               />
             ) : screen === "my" ? (
               <MyPage
@@ -147,6 +269,7 @@ export default function App() {
                 onNavigateSetting={() => setScreen("setting")}
                 onNavigateAnnouncement={() => setScreen("announcement")}
                 onLogout={() => setIsLoggedIn(false)}
+                isActive={screen === "my"}
               />
             ) : screen === "ranking" ? (
               <AttendanceRanking onGoBack={() => setScreen("my")} />
@@ -163,14 +286,24 @@ export default function App() {
             )}
           </AnimatedScreen>
         )}
-        </Screen>
-        {!showSplash && isLoggedIn && screen !== "alarm" && screen !== "setting" && screen !== "announcement" && (
+      </Screen>
+      {!showSplash &&
+        isLoggedIn &&
+        screen !== "alarm" &&
+        screen !== "setting" &&
+        screen !== "announcement" && (
           <Footer
-            activeTabId={screen === "main" ? "home" : screen === "my" || screen === "ranking" ? "profile" : "timecard"}
+            activeTabId={
+              screen === "main"
+                ? "home"
+                : screen === "my" || screen === "ranking"
+                ? "profile"
+                : "timecard"
+            }
             onTabPress={handleTabPress}
           />
         )}
-        <StatusBar style="auto" />
+      <StatusBar style="auto" />
     </ThemeProvider>
   );
 }
