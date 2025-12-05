@@ -6,7 +6,10 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "plugins": [
+      "./plugins/withBeacons"
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -15,6 +18,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.euk-sik.ieum",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "비콘 기반 출퇴근 체크를 위해 위치 권한이 필요합니다.",
+        "NSLocationWhenInUseUsageDescription": "비콘 기반 출퇴근 체크를 위해 위치 권한이 필요합니다.",
+        "NSLocationAlwaysUsageDescription": "백그라운드에서도 비콘을 감지하여 자동 출퇴근 체크를 위해 항상 위치 권한이 필요합니다.",
+        "NSBluetoothAlwaysUsageDescription": "비콘 기반 출퇴근 체크를 위해 블루투스 권한이 필요합니다.",
+        "NSBluetoothPeripheralUsageDescription": "비콘 기반 출퇴근 체크를 위해 블루투스 권한이 필요합니다.",
+        "UIBackgroundModes": ["location", "bluetooth-central"]
+      },
       "fonts": [
         "assets/fonts/Pretendard-Thin.otf",
         "assets/fonts/Pretendard-ExtraLight.otf",
@@ -33,7 +44,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.euksik.ieum"
     },
     "web": {
       "favicon": "./assets/favicon.png"
