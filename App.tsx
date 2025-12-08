@@ -22,9 +22,11 @@ import {
   Platform,
   DeviceEventEmitter,
   PermissionsAndroid,
+  Alert,
 } from "react-native";
 import { Footer } from "./src/components";
 import Beacons from "react-native-beacons-manager";
+import { attendanceService } from "./src/api/attendance";
 
 const Screen = styled.View`
   flex: 1;
@@ -81,6 +83,9 @@ export default function App() {
 
   const screenOpacity = useRef(new Animated.Value(1)).current;
   const screenTranslateX = useRef(new Animated.Value(0)).current;
+
+  const lastBeaconTimeRef = useRef<number>(Date.now());
+  const isCheckingOutRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -164,6 +169,72 @@ export default function App() {
       }
     };
   }, [showSplash, isLoggedIn]);
+
+  // 비콘 연결 상태 모니터링 및 자동 퇴근 로직
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    // 로그인 시점부터 시간 체크 시작
+    lastBeaconTimeRef.current = Date.now();
+
+    // 비콘 감지 이벤트 리스너
+    const subscription = DeviceEventEmitter.addListener(
+      "beaconsDidRange",
+      (data: { beacons: any[]; region: any }) => {
+        if (data.beacons && data.beacons.length > 0) {
+          const found = data.beacons.find(
+            (b) =>
+              b.uuid.toLowerCase() === TARGET_BEACON.uuid.toLowerCase() &&
+              b.major === TARGET_BEACON.major &&
+              b.minor === TARGET_BEACON.minor
+          );
+
+          if (found) {
+            lastBeaconTimeRef.current = Date.now();
+          }
+        }
+      }
+    );
+
+    // 주기적 체크 (5초마다)
+    const checkInterval = setInterval(async () => {
+      const now = Date.now();
+      const elapsed = now - lastBeaconTimeRef.current;
+      const TIMEOUT_MS = 30000;
+
+      if (elapsed > TIMEOUT_MS && !isCheckingOutRef.current) {
+        try {
+          isCheckingOutRef.current = true;
+          // 현재 상태 확인
+          const status = await attendanceService.getStatus();
+
+          if (status.is_checked_in) {
+            console.log("Auto checking out due to beacon loss...");
+
+            // 퇴근 처리
+            await attendanceService.checkOut();
+
+            Alert.alert(
+              "자동 퇴근 알림",
+              "비콘 연결이 끊겨 자동으로 퇴근 처리되었습니다."
+            );
+
+            // 화면 갱신 이벤트 발생
+            DeviceEventEmitter.emit("refreshScreen", { screen: "main" });
+          }
+        } catch (error) {
+          console.error("Auto checkout failed:", error);
+        } finally {
+          isCheckingOutRef.current = false;
+        }
+      }
+    }, 5000);
+
+    return () => {
+      subscription.remove();
+      clearInterval(checkInterval);
+    };
+  }, [isLoggedIn]);
 
   if (!fontsLoaded) {
     return (
